@@ -1,0 +1,61 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+.npm
+.yarn-integrity
+
+# STM32 / Embedded Development
+*.o
+*.su
+*.d
+*.list
+*.map
+*.elf
+*.bin
+*.hex
+*.cyclo
+Debug/
+Release/
+.settings/
+.cproject
+.project
+
+# Arduino / ESP32
+*.bin
+*.elf
+*.hex
+.pioenvs
+.piolibdeps
+.clang_complete
+.gcc-flags.json
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.cache
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini

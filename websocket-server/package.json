@@ -1,0 +1,22 @@
+{
+  "name": "esp32-cam-websocket-server",
+  "version": "1.0.0",
+  "description": "WebSocket server for ESP32-CAM streaming",
+  "main": "camera-server.js",
+  "scripts": {
+    "start": "node camera-server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "sharp": "^0.34.4",
+    "ws": "^8.14.2"
+  },
+  "keywords": [
+    "esp32",
+    "camera",
+    "websocket",
+    "streaming"
+  ],
+  "author": "",
+  "license": "MIT"
+}
