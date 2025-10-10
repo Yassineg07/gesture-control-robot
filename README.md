@@ -1,53 +1,179 @@
-# 🤖 ESP32-CAM Robot Control System
+# Gesture-Controlled Robot with Live Video Streaming## Quick Start Guide
 
-A complete wireless robot control system featuring live video streaming, ESP-NOW wireless control, and multi-microcontroller motor management.
+**New to this project?** Follow these steps in order:
 
-## Features
+1. **Read** the "How It Works" section below to understand the system architecture
+2. **Gather** all hardware components listed in "Hardware Requirements"
+3. **Wire** your components following the "Wiring Guide"
+4. **Install** software dependencies (Arduino IDE, Node.js, libraries)
+5. **Configure** WiFi credentials and MAC addresses
+6. **Upload** code to all three microcontrollers in the correct sequence
+7. **Test** each subsystem independently before final integration
+8. **Enjoy** your working robot with live video streaming!
 
-✅ **Live Video Streaming** - ESP32-CAM streams 640x480 video at ~18-22 FPS  
-✅ **Wireless Control** - ESP-NOW provides reliable low-latency command transmission  
-✅ **Web Interface** - Real-time video feed with motor status monitoring  
-✅ **Multi-Controller** - Master ESP32 → ESP32-CAM → STM32F4 → L298N motors  
-✅ **Direction LEDs** - Visual feedback showing current movement direction  
-✅ **Image Processing** - Server-side enhancement with blur, brightness, and saturation adjustments
+**Estimated build time:** 3-4 hours (first time), 1-2 hours (experienced)
 
 ---
 
-## System Architecture
+## How It Works wireless robot control system that combines ESP-NOW wireless communication, live video streaming, and multi-microcontroller architecture. This project demonstrates a complete embedded systems solution where a **Master ESP32** sends motor commands wirelessly to an **ESP32-CAM**, which simultaneously streams live video to a web browser while forwarding control commands via UART to an **STM32F4** microcontroller that drives the motors through an L298N motor driver.
+
+## Project Overview
+
+This is an advanced robotics project that showcases **real-world embedded systems integration** at multiple levels:
+
+### What Makes This Project Special
+
+**Multi-Microcontroller Architecture** - Three different microcontrollers (ESP32, ESP32-CAM, STM32F4) working together, each handling specialized tasks:
+- **ESP32**: Autonomous command generation with 12 test patterns
+- **ESP32-CAM**: Dual-role as video streamer and communication bridge
+- **STM32F4**: Real-time motor control with hardware PWM and DMA
+
+**Complete Wireless System** - Demonstrates two different wireless technologies working in parallel:
+- **ESP-NOW**: Low-latency peer-to-peer communication (<10ms)
+- **WebSocket**: Full-duplex video streaming and browser interface
+
+**Live Video Feedback** - Real-time camera feed with server-side image processing, system monitoring, and motor status display
+
+**Industrial-Grade Features**:
+- DMA-based UART for efficient, non-blocking communication
+- Checksum validation for data integrity
+- Hardware PWM (26kHz) for smooth motor control
+- Visual feedback with 4-directional LEDs
+
+### What You'll Learn
+
+This project is perfect for understanding:
+- ✅ ESP-NOW protocol for reliable wireless communication between ESP32 devices
+- ✅ WebSocket server implementation with Node.js for real-time data streaming
+- ✅ STM32 HAL programming with DMA, timers, and GPIO
+- ✅ UART communication protocols with custom packet structures
+- ✅ Multi-device system architecture and debugging
+- ✅ Motor control with differential drive and independent PWM
+- ✅ ESP32-CAM camera configuration and streaming
+- ✅ Image processing with Sharp (Node.js)
+
+## Key Features
+
+✅ **Live Video Streaming** - ESP32-CAM streams 640x480 video at ~18-22 FPS to web browser  
+✅ **Wireless Control** - ESP-NOW provides reliable low-latency command transmission (100% success rate)  
+✅ **Web Dashboard** - Real-time video feed with motor status, system stats, and camera controls  
+✅ **Multi-Microcontroller Chain** - Master ESP32 → ESP32-CAM → STM32F4 → L298N motors  
+✅ **Direction LEDs** - Visual feedback showing current movement direction (Forward, Reverse, Left, Right)  
+✅ **Image Processing** - Server-side enhancement with blur, brightness, and saturation adjustments  
+✅ **Test Patterns** - 12 pre-programmed movement patterns for demonstration and testing  
+✅ **DMA-based UART** - Efficient serial communication with checksum validation  
+✅ **Differential Drive** - Independent PWM control for each motor enables precise movements
+
+---
+
+## � Quick Start Guide
+
+**New to this project?** Follow these steps in order:
+
+1. **📖 Read** the "How It Works" section below to understand the system architecture
+2. **🛠️ Gather** all hardware components listed in "Hardware Requirements"
+3. **🔌 Wire** your components following the "Wiring Guide"
+4. **💻 Install** software dependencies (Arduino IDE, Node.js, libraries)
+5. **⚙️ Configure** WiFi credentials and MAC addresses
+6. **⬆️ Upload** code to all three microcontrollers in the correct sequence
+7. **🧪 Test** each subsystem independently before final integration
+8. **🎉 Enjoy** your working robot with live video streaming!
+
+**Estimated build time:** 3-4 hours (first time), 1-2 hours (experienced)
+
+---
+
+## �📋 How It Works
+
+### System Architecture
+
+The project uses a three-tier architecture for maximum flexibility and separation of concerns:
 
 ```
-┌─────────────────┐         ┌──────────────────┐         ┌──────────────┐
-│  Master ESP32   │         │   ESP32-CAM      │         │  STM32F4     │
-│                 │         │                  │         │              │
-│  ESP-NOW TX ────┼────────→│  ESP-NOW RX      │         │              │
-│  (Wireless)     │         │                  │         │              │
-│                 │  WiFi   │  WebSocket ──────┼────────→│  Browser UI  │
-│  Test Patterns  │         │  Video Stream    │         │  (Live View) │
-│                 │         │                  │         │              │
-│                 │         │  UART TX (GPIO1) ├────────→│  RX (PA3)    │
-│                 │         │                  │         │  DMA Buffer  │
-│                 │         │                  │         │              │
-│                 │         │                  │         │  TIM1 PWM    │
-│                 │         │                  │         │  GPIO Dir    │
-└─────────────────┘         └──────────────────┘         └──────┬───────┘
-                                                                 │
-                                                                 ↓
-                                                         ┌──────────────┐
-                                                         │  L298N       │
-                                                         │  Motor Driver│
-                                                         │              │
-                                                         │  OUT1/2 ─────┼──→ Right Motor
-                                                         │  OUT3/4 ─────┼──→ Left Motor
-                                                         └──────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          CONTROL FLOW                                    │
+└─────────────────────────────────────────────────────────────────────────┘
+
+    Master ESP32                ESP32-CAM              STM32F4           L298N
+   (Command Gen)            (Video + Relay)        (Motor Control)   (Motor Driver)
+         │                         │                      │                │
+         │   ESP-NOW Wireless     │                      │                │
+         ├───────────────────────→│                      │                │
+         │   Motor Commands       │                      │                │
+         │   (mode, PWM L/R)      │   UART Serial       │                │
+         │                        ├─────────────────────→│                │
+         │                        │   (115200 baud)      │   PWM + GPIO   │
+         │                        │                      ├───────────────→│
+         │                        │                      │   Direction    │
+         │                        │                      │   Signals      │
+         │                        │                      │                │
+         │                        │  WebSocket          ↓                 │
+         │                        │  Video Stream    4x LEDs              │
+         │                        ├──────────→     (Fwd/Rev/L/R)          │
+         │                        │                                       ↓
+         │                        │           ┌──────────────┐      DC Motors
+         │                        │           │ Web Browser  │      (Left/Right)
+         │                        │           │  Dashboard   │
+         │                        │           └──────────────┘
 ```
 
-**Data Flow:**
-1. Master ESP32 generates movement commands (12 test patterns)
-2. ESP-NOW transmits wirelessly to ESP32-CAM (channel 3, 100% reliability)
-3. ESP32-CAM receives, displays status, forwards via UART to STM32
-4. STM32F4 receives via DMA, validates checksum, controls motors
-5. Direction LEDs automatically indicate movement direction
-6. Web browser displays live video + motor status
+**Data Flow Explanation:**
+
+1. **Master ESP32** - Generates motor control commands with test patterns
+   - Runs autonomous test sequences (forward, reverse, turns, spins)
+   - Sends commands wirelessly via ESP-NOW (2.4GHz, WiFi channel 3)
+   - Each command contains: mode (0-4), PWM right (0-255), PWM left (0-255)
+
+2. **ESP32-CAM** - Dual role as video streamer and command relay
+   - Receives ESP-NOW commands from Master ESP32
+   - Captures 640x480 video frames at 18-22 FPS
+   - Streams video to browser via WebSocket server
+   - Forwards motor commands to STM32 via UART with checksum validation
+   - Displays system stats (FPS, memory, WiFi signal, motor status)
+
+3. **STM32F4** - Motor controller with LED feedback
+   - Receives UART commands via DMA (efficient, non-blocking)
+   - Validates checksum to ensure data integrity
+   - Generates PWM signals (TIM1) for motor speed control
+   - Controls motor direction via GPIO pins
+   - Updates 4 LEDs to show current movement direction
+
+4. **L298N Motor Driver** - Power electronics for motors
+   - Receives PWM + direction signals from STM32
+   - Drives two DC motors (left and right wheels)
+   - Handles high current loads (motors powered separately from logic)
+
+### Motor Control Modes
+
+| Mode | Value | Description | Left Motor | Right Motor |
+|------|-------|-------------|------------|-------------|
+| FORWARD | 0 | Move straight forward | Forward | Forward |
+| REVERSE | 1 | Move straight backward | Reverse | Reverse |
+| RIGHT | 2 | Rotate right (in place) | Forward | Reverse |
+| LEFT | 3 | Rotate left (in place) | Reverse | Forward |
+| STOP | 4 | Stop all motors | Off | Off |
+
+**Note**: Each motor has independent PWM control (0-255), allowing differential speeds for curved movements.
+
+### Communication Protocols
+
+**ESP-NOW (Master → ESP32-CAM):**
+- Frequency: 2.4GHz (WiFi channel 3)
+- Range: Up to 200m line-of-sight
+- Latency: <10ms
+- Reliability: 100% in tests (with retry mechanism)
+
+**UART (ESP32-CAM → STM32):**
+- Baud Rate: 115200
+- Protocol: `[0xFF][MODE][PWM_R][PWM_L][CHECKSUM]`
+- Checksum: XOR of MODE, PWM_R, PWM_L
+- Reception: DMA-based for efficiency
+
+**WebSocket (ESP32-CAM → Browser):**
+- Port: 8080
+- Video Format: JPEG stream
+- Stats Updates: Real-time JSON messages
+- Control Commands: Bidirectional JSON
 
 ---
 
@@ -164,7 +290,7 @@ Look for IPv4 Address (usually 192.168.x.x) - you'll need this for ESP32-CAM con
 
 ### 2. Configure WiFi (ESP32-CAM)
 
-Edit `esp32_test1.ino`:
+Edit `ESP32-CAM/Slave-espnow/Slave-espnow.ino`:
 
 ```cpp
 const char* ssid = "YOUR_WIFI_SSID";
@@ -176,13 +302,13 @@ const char* websocket_server = "192.168.1.XXX";  // Your PC's IP from ipconfig
 
 ### 3. Set ESP-NOW MAC Address (Master ESP32)
 
-1. Upload `esp32_test1.ino` to ESP32-CAM
+1. Upload `ESP32-CAM/Slave-espnow/Slave-espnow.ino` to ESP32-CAM
 2. Open Serial Monitor (115200 baud)
 3. Copy the MAC address shown (e.g., `08:F9:E0:EC:CE:1C`)
-4. Edit `espnow/espnow.ino`:
+4. Edit `ESP32/Master-espnow/Master-espnow.ino`:
 
 ```cpp
-uint8_t esp32camAddress[] = {0x08, 0xF9, 0xE0, 0xEC, 0xCE, 0x1C};  // Your ESP32-CAM MAC
+uint8_t espCamAddress[] = {0x08, 0xF9, 0xE0, 0xEC, 0xCE, 0x1C};  // Your ESP32-CAM MAC
 ```
 
 ### 4. Match WiFi Channel
@@ -190,7 +316,7 @@ uint8_t esp32camAddress[] = {0x08, 0xF9, 0xE0, 0xEC, 0xCE, 0x1C};  // Your ESP32
 Both ESP32 devices must use the same WiFi channel:
 
 **ESP32-CAM** (automatically uses WiFi channel from router)  
-**Master ESP32** - edit `espnow/espnow.ino`:
+**Master ESP32** - edit `ESP32/Master-espnow/Master-espnow.ino`:
 
 ```cpp
 esp_wifi_set_channel(3, WIFI_SECOND_CHAN_NONE);  // Match ESP32-CAM's channel
@@ -222,7 +348,7 @@ Check ESP32-CAM's Serial Monitor for its channel, then update Master ESP32.
 ### Step 1: Upload Master ESP32
 ```
 1. Connect Master ESP32 via USB
-2. Open espnow/espnow.ino in Arduino IDE
+2. Open ESP32/Master-espnow/Master-espnow.ino in Arduino IDE
 3. Select Board: "ESP32 Dev Module"
 4. Select correct COM port
 5. Click Upload
@@ -235,7 +361,7 @@ Check ESP32-CAM's Serial Monitor for its channel, then update Master ESP32.
 1. Disconnect UART from STM32 if connected!
 2. Connect FTDI adapter to ESP32-CAM (RX→U0T, TX→U0R)
 3. Connect IO0 to GND (programming mode)
-4. Open esp32_test1.ino in Arduino IDE
+4. Open ESP32-CAM/Slave-espnow/Slave-espnow.ino in Arduino IDE
 5. Update WiFi SSID, password, and server IP
 6. Select Board: "AI Thinker ESP32-CAM"
 7. Select correct COM port
@@ -249,7 +375,7 @@ Check ESP32-CAM's Serial Monitor for its channel, then update Master ESP32.
 
 ### Step 3: Update Master ESP32 MAC
 ```
-1. Paste ESP32-CAM MAC into espnow.ino (line ~11)
+1. Paste ESP32-CAM MAC into ESP32/Master-espnow/Master-espnow.ino (line ~11)
 2. Verify WiFi channel matches ESP32-CAM
 3. Re-upload to Master ESP32
 ```
@@ -380,7 +506,7 @@ Sending to STM32: FF 00 FF FF 00
 **Troubleshooting Web Interface:**
 - Ensure ESP32-CAM and PC are on same WiFi network
 - Check firewall isn't blocking port 8080
-- Verify IP address in `esp32_test1.ino` matches your PC's IP (use `ipconfig`)
+- Verify IP address in `ESP32-CAM/Slave-espnow/Slave-espnow.ino` matches your PC's IP (use `ipconfig`)
 - Check Serial Monitor for WebSocket connection messages
 - Open browser console (F12) for WebSocket errors
 
@@ -540,51 +666,196 @@ Packet: [0xFF] [0x00] [0xFF] [0xC8] [0x37]
 ## Project Structure
 
 ```
-esp32_test1/
-├── esp32_test1.ino                 # ESP32-CAM (receiver + video streamer)
-├── espnow/
-│   └── espnow.ino                  # Master ESP32 (sender)
+gesture-control-robot/
+├── ESP32/
+│   └── Master-espnow/
+│       └── Master-espnow.ino           # Master ESP32 (command generator)
+│
+├── ESP32-CAM/
+│   └── Slave-espnow/
+│       └── Slave-espnow.ino            # ESP32-CAM (receiver + video streamer)
+│
 ├── STM32F4/
 │   └── hand-controlled-robot/
-│       ├── hand-controlled-robot.ioc   # STM32CubeMX project file
-│       └── Core/Src/main.c             # STM32F4 motor controller (HAL)
+│       ├── hand-controlled-robot.ioc   # STM32CubeMX configuration
+│       ├── Core/
+│       │   ├── Inc/
+│       │   │   └── main.h              # Pin definitions and headers
+│       │   └── Src/
+│       │       └── main.c              # Motor controller (HAL-based)
+│       └── Debug/                      # Compiled binaries (.elf, .bin, .hex)
+│
 ├── websocket-server/
-│   ├── camera-server.js            # Node.js WebSocket server
-│   └── package.json                # Node.js dependencies
-└── README.md                       # This file (complete documentation)
+│   ├── camera-server.js                # Node.js WebSocket server
+│   ├── package.json                    # Node.js dependencies
+│   └── start-websocket-server.bat      # Windows startup script
+│
+├── .gitignore                          # Git ignore patterns
+├── README.md                           # This documentation
+└── LICENSE                             # Project license
+
 ```
 
 ---
 
-## Key Code Files
+## Key Code Files Explained
 
-### 1. `espnow/espnow.ino`
-- Master ESP32 controller
-- Generates 12 test movement patterns
+### 1. **ESP32/Master-espnow/Master-espnow.ino**
+**Purpose:** Autonomous command generator  
+**Key Features:**
+- Generates 12 different test movement patterns
 - Sends ESP-NOW packets every 2 seconds
-- Explicit WiFi channel setting
+- Explicit WiFi channel configuration (channel 3)
+- MAC address targeting for peer-to-peer communication
+- Packet counter for reliability tracking
 
-### 2. `esp32_test1.ino`
-- ESP32-CAM receiver
-- ESP-NOW callback handler
-- UART transmission to STM32
-- Video streaming via WebSocket
-- System stats reporting
+**What it does:** Acts as the "brain" that decides what movements the robot should make. In a real application, this would be replaced by gesture detection, remote control, or autonomous navigation algorithms.
 
-### 3. `STM32F4/hand-controlled-robot/Core/Src/main.c`
-- STM32F4 HAL-based motor controller
+### 2. **ESP32-CAM/Slave-espnow/Slave-espnow.ino**
+**Purpose:** Communication bridge and video streamer  
+**Key Features:**
+- ESP-NOW callback handler for receiving commands
+- UART transmission to STM32 with custom protocol
+- OV2640 camera configuration (640x480, JPEG)
+- WebSocket client for video streaming
+- System statistics reporting (memory, FPS, WiFi signal)
+
+**What it does:** The "hub" that connects wireless commands, video streaming, and wired motor control. It's the most complex component, handling three different communication protocols simultaneously.
+
+### 3. **STM32F4/hand-controlled-robot/Core/Src/main.c**
+**Purpose:** Real-time motor controller  
+**Key Features:**
 - DMA UART reception (20-byte circular buffer)
-- Command processing with checksum validation
-- TIM1 PWM motor control
-- Automatic direction LED updates
-- RX-only (no serial debug output)
+- Command validation with XOR checksum
+- TIM1 hardware PWM (26 kHz, 8-bit resolution)
+- GPIO control for motor direction
+- Automatic LED updates based on motor state
+- Non-blocking operation (DMA callbacks)
 
-### 4. `websocket-server/camera-server.js`
-- Node.js WebSocket server
-- JPEG frame reception and relay
-- Image processing (blur, brightness, saturation)
-- Web UI serving
+**What it does:** The "muscles" that translate high-level commands into precise motor movements. Uses hardware peripherals for efficiency and reliability.
+
+### 4. **websocket-server/camera-server.js**
+**Purpose:** Web server and video processor  
+**Key Features:**
+- HTTP server serving web dashboard
+- WebSocket server for bidirectional communication
+- JPEG frame processing with Sharp library
+- Image enhancement (blur, brightness, saturation)
 - Real-time motor status display
+- Multi-client support
+
+**What it does:** The "eyes" that display what the robot sees. Provides a professional web interface for monitoring and controlling the robot.
+
+---
+
+## Use Cases & Applications
+
+This project architecture is perfect for:
+
+**Educational Purposes:**
+- Learning multi-microcontroller systems design
+- Understanding wireless communication protocols
+- Practicing embedded systems debugging
+- Studying real-time video streaming
+
+**Robotics Projects:**
+- Surveillance robots with live video feed
+- Telepresence robots (add gesture control!)
+- Autonomous navigation with visual feedback
+- Search and rescue robot prototypes
+
+**Research & Development:**
+- Testing ESP-NOW reliability and range
+- Benchmarking video streaming performance
+- Experimenting with motor control algorithms
+- Developing computer vision applications
+
+**Industrial Applications:**
+- Remote inspection systems
+- Warehouse automation
+- IoT device coordination
+- Educational robotics platforms
+
+---
+
+## Demo
+
+### System in Action
+
+**Web Dashboard:**
+- Real-time video streaming from ESP32-CAM
+- Live motor status display (mode, PWM values for both motors)
+- System statistics (FPS, memory usage, WiFi signal strength)
+- Camera control sliders (brightness, contrast, saturation)
+
+**Hardware Operation:**
+- Direction LEDs indicate movement (Forward/Reverse/Left/Right)
+- Smooth motor operation with 26kHz PWM
+- Wireless command transmission with <10ms latency
+- Autonomous test patterns demonstrating all movement modes
+
+**Serial Monitor Outputs:**
+```
+[Master ESP32]
+🤖 Robot Controller - Testing Mode
+Sent #1: Mode=0 (FORWARD), R=255, L=255
+Sent #2: Mode=0 (FORWARD), R=150, L=255
+
+[ESP32-CAM]
+=== ESP-NOW Data Received ===
+Mode: FORWARD (0), PWM: R=255, L=255
+Dropped: 0 (0.00%)
+WebSocket: Connected, FPS: 21.3
+```
+
+---
+
+## Future Enhancements
+
+Potential improvements and extensions:
+
+**Control Methods:**
+- Add hand gesture recognition (OpenCV + MediaPipe)
+- Mobile app control (Bluetooth/WiFi)
+- Gamepad/joystick integration
+- Autonomous navigation with obstacle avoidance
+
+**Sensors:**
+- Ultrasonic sensors for distance measurement
+- IMU (gyroscope/accelerometer) for stability
+- Temperature/humidity sensors
+- Microphone for voice commands
+
+**Video Features:**
+- Record video to SD card
+- Computer vision (face detection, object tracking)
+- Night vision with IR LEDs
+- Real-time analytics overlay
+
+**Motor Control:**
+- PID control for speed regulation
+- Odometry for position tracking
+- Encoder feedback for precision
+- Acceleration/deceleration curves
+
+---
+
+## Contributing
+
+Contributions are welcome! Areas where you can help:
+
+- Documentation improvements
+- Bug fixes and testing
+- New features (see Future Enhancements)
+- Web UI improvements
+- Hardware alternatives (different boards, sensors)
+
+**To contribute:**
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ---
 
@@ -605,6 +876,66 @@ Built using:
 
 ---
 
+## Frequently Asked Questions
+
+**Q: Why use three different microcontrollers?**  
+A: Each microcontroller is optimized for its task:
+- **ESP32**: Wireless communication expertise
+- **ESP32-CAM**: Built-in camera + WiFi
+- **STM32F4**: Superior real-time performance and hardware peripherals for motor control
+
+**Q: Can I use different microcontrollers?**  
+A: Yes! The architecture is modular:
+- Master ESP32 → Any ESP32 board
+- ESP32-CAM → Must have OV2640 camera
+- STM32F4 → Any STM32 with TIM1 and USART2 (or modify pin assignments)
+
+**Q: What's the maximum range?**  
+A: ESP-NOW: ~200m line-of-sight (outdoor), 50-100m (indoor). Limited by WiFi 2.4GHz range and obstacles.
+
+**Q: Can I control the robot manually instead of test patterns?**  
+A: Yes! Modify `Master-espnow.ino` to read from:
+- Serial commands
+- Bluetooth gamepad
+- Hand gesture recognition
+- Mobile app
+
+**Q: Why not control motors directly from ESP32?**  
+A: STM32F4 provides:
+- Hardware PWM with precise frequency control
+- DMA for non-blocking UART reception
+- More GPIO pins for expansion
+- Better real-time performance
+
+**Q: Does the robot need to be connected to my PC?**  
+A: Only for video streaming. For standalone operation, you can remove the WebSocket connection and run the robot autonomously.
+
+**Q: Can multiple robots work together?**  
+A: Yes! ESP-NOW supports up to 20 peers. Each robot needs a unique ESP32-CAM MAC address.
+
+**Q: What's the power consumption?**  
+A: Approximate values:
+- ESP32: ~80-160mA (WiFi active)
+- ESP32-CAM: ~200-300mA (streaming)
+- STM32F4: ~100mA
+- Motors: Varies (500-2000mA depending on load)
+- **Total: ~1-3A** (5V logic + motors separate)
+
+**Q: Why is video FPS limited to ~20 FPS?**  
+A: Trade-off between:
+- Camera capture time
+- JPEG compression
+- WiFi bandwidth
+- WebSocket processing
+- `delay(40)` in code (adjustable)
+
+Reduce delay or image quality for higher FPS.
+
+**Q: Can I add sensors?**  
+A: Absolutely! STM32F4 has many unused GPIO pins, ADC channels, and additional UART/I2C/SPI ports. Add ultrasonic, IR, temperature, or any other sensors.
+
+---
+
 ## Support
 
 For issues or questions:
@@ -614,4 +945,4 @@ For issues or questions:
 4. Review troubleshooting section
 5. Check ESP-NOW channel matching
 
-**Happy Building! 🤖🎉**
+**Happy Building!**
