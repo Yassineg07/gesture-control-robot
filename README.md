@@ -96,18 +96,18 @@ The project uses a three-tier architecture for maximum flexibility and separatio
 
     Master ESP32                ESP32-CAM              STM32F4           L298N
    (Command Gen)            (Video + Relay)        (Motor Control)   (Motor Driver)
-         │                         │                      │                │
+         │                        │                      │                │
          │   ESP-NOW Wireless     │                      │                │
          ├───────────────────────→│                      │                │
          │   Motor Commands       │                      │                │
-         │   (mode, PWM L/R)      │   UART Serial       │                │
+         │   (mode, PWM L/R)      │   UART Serial        │                │
          │                        ├─────────────────────→│                │
          │                        │   (115200 baud)      │   PWM + GPIO   │
          │                        │                      ├───────────────→│
          │                        │                      │   Direction    │
          │                        │                      │   Signals      │
          │                        │                      │                │
-         │                        │  WebSocket          ↓                 │
+         │                        │  WebSocket           ↓                │
          │                        │  Video Stream    4x LEDs              │
          │                        ├──────────→     (Fwd/Rev/L/R)          │
          │                        │                                       ↓

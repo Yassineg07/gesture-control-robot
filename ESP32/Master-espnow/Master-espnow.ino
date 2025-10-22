@@ -365,11 +365,11 @@ void loop() {
   esp_err_t result = esp_now_send(espCamAddress, (uint8_t *) &myData, sizeof(myData));
   
   if (result == ESP_OK) {
-    Serial.printf("  ✓ Sent #%d: Mode=%d, R=%d, L=%d\n", 
+    Serial.printf("Sent #%d: Mode=%d, R=%d, L=%d\n", 
                   messageCounter, myData.mode, myData.pwm_right, myData.pwm_left);
   } else {
     Serial.println("  ✗ ERROR: Send failed");
   }
   
-  delay(1000); // 1 second between commands
+  delay(2000); // 1 second between commands
 }
