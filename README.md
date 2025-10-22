@@ -15,7 +15,10 @@
 
 ---
 
-## How It Works wireless robot control system that combines ESP-NOW wireless communication, live video streaming, and multi-microcontroller architecture. This project demonstrates a complete embedded systems solution where a **Master ESP32** sends motor commands wirelessly to an **ESP32-CAM**, which simultaneously streams live video to a web browser while forwarding control commands via UART to an **STM32F4** microcontroller that drives the motors through an L298N motor driver.
+## How It Works
+
+Wireless robot control system that combines ESP-NOW wireless communication, live video streaming, and multi-microcontroller architecture. 
+This project demonstrates a complete embedded systems solution where a **Master ESP32** sends motor commands wirelessly to an **ESP32-CAM**, which simultaneously streams live video to a web browser while forwarding control commands via UART to an **STM32F4** microcontroller that drives the motors through an L298N motor driver.
 
 ## Project Overview
 
