@@ -69,12 +69,12 @@ void Error_Handler(void);
 #define LEFT_REV_GPIO_Port GPIOE
 #define LED_RIGHT_Pin GPIO_PIN_12
 #define LED_RIGHT_GPIO_Port GPIOD
-#define LED_FWD_Pin GPIO_PIN_13
-#define LED_FWD_GPIO_Port GPIOD
+#define LED_REV_Pin GPIO_PIN_13
+#define LED_REV_GPIO_Port GPIOD
 #define LED_LEFT_Pin GPIO_PIN_14
 #define LED_LEFT_GPIO_Port GPIOD
-#define LED_REV_Pin GPIO_PIN_15
-#define LED_REV_GPIO_Port GPIOD
+#define LED_FWD_Pin GPIO_PIN_15
+#define LED_FWD_GPIO_Port GPIOD
 
 /* USER CODE BEGIN Private defines */
 

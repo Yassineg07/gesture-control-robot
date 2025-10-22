@@ -52,17 +52,24 @@ typedef enum {
 TIM_HandleTypeDef htim1;
 
 UART_HandleTypeDef huart2;
-DMA_HandleTypeDef hdma_usart2_rx;
 
 /* USER CODE BEGIN PV */
 
-// UART DMA buffer
-#define UART_BUFFER_SIZE 20
-uint8_t uartRxBuffer[UART_BUFFER_SIZE];
-uint8_t commandBuffer[5];
-volatile uint8_t newCommandReceived = 0;
+/* ============================================================================
+ * UART Communication Variables
+ * ============================================================================ */
+#define UART_BUFFER_SIZE 100
+#define PACKET_SIZE 5
 
-// Current motor state
+uint8_t uartRxBuffer[UART_BUFFER_SIZE];  // Reception buffer
+uint8_t rxByte;                           // Single byte for interrupt reception
+volatile uint16_t rxIndex = 0;            // Current buffer position
+uint8_t commandBuffer[PACKET_SIZE];       // Complete packet storage
+volatile uint8_t newCommandReceived = 0;  // Flag for new command
+
+/* ============================================================================
+ * Motor State Variables
+ * ============================================================================ */
 uint8_t currentMode = MODE_STOP;
 uint8_t currentPWM_Right = 0;
 uint8_t currentPWM_Left = 0;
@@ -72,11 +79,11 @@ uint8_t currentPWM_Left = 0;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_DMA_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 void processCommand(uint8_t *data);
+void setMotor(GPIO_TypeDef *fwdPort, uint16_t fwdPin, GPIO_TypeDef *revPort, uint16_t revPin, uint32_t channel, uint8_t pwm, uint8_t forward);
 void moveForward(uint8_t pwm_right, uint8_t pwm_left);
 void moveReverse(uint8_t pwm_right, uint8_t pwm_left);
 void rotateRight(uint8_t pwm_right, uint8_t pwm_left);
@@ -89,153 +96,114 @@ void turnOffAllLEDs(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-// Process received UART command
+/* ============================================================================
+ * UART Command Processing
+ * ============================================================================ */
+
+/**
+ * @brief  Process received UART command packet
+ * @param  data: Pointer to 5-byte packet [0xFF][MODE][PWM_R][PWM_L][CHECKSUM]
+ */
 void processCommand(uint8_t *data) {
-  // Packet format: [0xFF][MODE][PWM_RIGHT][PWM_LEFT][CHECKSUM]
-  uint8_t mode = data[1];
-  uint8_t pwm_right = data[2];
-  uint8_t pwm_left = data[3];
-  uint8_t checksum = data[4];
-  
-  // Verify checksum
-  uint8_t calculated_checksum = mode ^ pwm_right ^ pwm_left;
-  if (checksum != calculated_checksum) {
-    return;
+  // Verify checksum (XOR of mode, pwm_right, pwm_left)
+  if (data[4] != (data[1] ^ data[2] ^ data[3]) || data[1] > MODE_STOP) {
+    return;  // Invalid packet or mode
   }
   
-  // Validate mode
-  if (mode > MODE_STOP) {
-    return;
-  }
+  // Update state
+  currentMode = data[1];
+  currentPWM_Right = data[2];
+  currentPWM_Left = data[3];
   
-  // Update current state
-  currentMode = mode;
-  currentPWM_Right = pwm_right;
-  currentPWM_Left = pwm_left;
-  
-  // Execute motor command
-  switch (mode) {
-    case MODE_FORWARD:
-      moveForward(pwm_right, pwm_left);
-      break;
-      
-    case MODE_REVERSE:
-      moveReverse(pwm_right, pwm_left);
-      break;
-      
-    case MODE_RIGHT:
-      rotateRight(pwm_right, pwm_left);
-      break;
-      
-    case MODE_LEFT:
-      rotateLeft(pwm_right, pwm_left);
-      break;
-      
-    case MODE_STOP:
-      stopMotors();
-      break;
+  // Execute command
+  switch (currentMode) {
+    case MODE_FORWARD:  moveForward(data[2], data[3]);  break;
+    case MODE_REVERSE:  moveReverse(data[2], data[3]);  break;
+    case MODE_RIGHT:    rotateRight(data[2], data[3]);  break;
+    case MODE_LEFT:     rotateLeft(data[2], data[3]);   break;
+    case MODE_STOP:     stopMotors();                   break;
   }
 }
 
-// Motor control functions
+/* ============================================================================
+ * Motor Control Functions
+ * ============================================================================ */
+
+/**
+ * @brief  Set individual motor direction and speed
+ * @param  fwdPort, fwdPin: Forward direction GPIO
+ * @param  revPort, revPin: Reverse direction GPIO  
+ * @param  channel: PWM timer channel
+ * @param  pwm: Speed (0-255)
+ * @param  forward: 1=forward, 0=reverse
+ */
+void setMotor(GPIO_TypeDef *fwdPort, uint16_t fwdPin, GPIO_TypeDef *revPort, uint16_t revPin, 
+              uint32_t channel, uint8_t pwm, uint8_t forward) {
+  HAL_GPIO_WritePin(fwdPort, fwdPin, forward ? GPIO_PIN_SET : GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(revPort, revPin, forward ? GPIO_PIN_RESET : GPIO_PIN_SET);
+  __HAL_TIM_SET_COMPARE(&htim1, channel, pwm);
+}
+
 void moveForward(uint8_t pwm_right, uint8_t pwm_left) {
-  // Right motor forward
-  HAL_GPIO_WritePin(RIGHT_FWD_GPIO_Port, RIGHT_FWD_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(RIGHT_REV_GPIO_Port, RIGHT_REV_Pin, GPIO_PIN_RESET);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, pwm_right);
-  
-  // Left motor forward
-  HAL_GPIO_WritePin(LEFT_FWD_GPIO_Port, LEFT_FWD_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(LEFT_REV_GPIO_Port, LEFT_REV_Pin, GPIO_PIN_RESET);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, pwm_left);
-  
+  setMotor(RIGHT_FWD_GPIO_Port, RIGHT_FWD_Pin, RIGHT_REV_GPIO_Port, RIGHT_REV_Pin, TIM_CHANNEL_1, pwm_right, 1);
+  setMotor(LEFT_FWD_GPIO_Port, LEFT_FWD_Pin, LEFT_REV_GPIO_Port, LEFT_REV_Pin, TIM_CHANNEL_2, pwm_left, 1);
   updateLEDs();
 }
 
 void moveReverse(uint8_t pwm_right, uint8_t pwm_left) {
-  // Right motor reverse
-  HAL_GPIO_WritePin(RIGHT_FWD_GPIO_Port, RIGHT_FWD_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(RIGHT_REV_GPIO_Port, RIGHT_REV_Pin, GPIO_PIN_SET);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, pwm_right);
-  
-  // Left motor reverse
-  HAL_GPIO_WritePin(LEFT_FWD_GPIO_Port, LEFT_FWD_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(LEFT_REV_GPIO_Port, LEFT_REV_Pin, GPIO_PIN_SET);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, pwm_left);
-  
+  setMotor(RIGHT_FWD_GPIO_Port, RIGHT_FWD_Pin, RIGHT_REV_GPIO_Port, RIGHT_REV_Pin, TIM_CHANNEL_1, pwm_right, 0);
+  setMotor(LEFT_FWD_GPIO_Port, LEFT_FWD_Pin, LEFT_REV_GPIO_Port, LEFT_REV_Pin, TIM_CHANNEL_2, pwm_left, 0);
   updateLEDs();
 }
 
 void rotateRight(uint8_t pwm_right, uint8_t pwm_left) {
-  // Right motor reverse
-  HAL_GPIO_WritePin(RIGHT_FWD_GPIO_Port, RIGHT_FWD_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(RIGHT_REV_GPIO_Port, RIGHT_REV_Pin, GPIO_PIN_SET);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, pwm_right);
-  
-  // Left motor forward
-  HAL_GPIO_WritePin(LEFT_FWD_GPIO_Port, LEFT_FWD_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(LEFT_REV_GPIO_Port, LEFT_REV_Pin, GPIO_PIN_RESET);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, pwm_left);
-  
+  setMotor(RIGHT_FWD_GPIO_Port, RIGHT_FWD_Pin, RIGHT_REV_GPIO_Port, RIGHT_REV_Pin, TIM_CHANNEL_1, pwm_right, 0);
+  setMotor(LEFT_FWD_GPIO_Port, LEFT_FWD_Pin, LEFT_REV_GPIO_Port, LEFT_REV_Pin, TIM_CHANNEL_2, pwm_left, 1);
   updateLEDs();
 }
 
 void rotateLeft(uint8_t pwm_right, uint8_t pwm_left) {
-  // Right motor forward
-  HAL_GPIO_WritePin(RIGHT_FWD_GPIO_Port, RIGHT_FWD_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(RIGHT_REV_GPIO_Port, RIGHT_REV_Pin, GPIO_PIN_RESET);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, pwm_right);
-  
-  // Left motor reverse
-  HAL_GPIO_WritePin(LEFT_FWD_GPIO_Port, LEFT_FWD_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(LEFT_REV_GPIO_Port, LEFT_REV_Pin, GPIO_PIN_SET);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, pwm_left);
-  
+  setMotor(RIGHT_FWD_GPIO_Port, RIGHT_FWD_Pin, RIGHT_REV_GPIO_Port, RIGHT_REV_Pin, TIM_CHANNEL_1, pwm_right, 1);
+  setMotor(LEFT_FWD_GPIO_Port, LEFT_FWD_Pin, LEFT_REV_GPIO_Port, LEFT_REV_Pin, TIM_CHANNEL_2, pwm_left, 0);
   updateLEDs();
 }
 
 void stopMotors(void) {
-  // Stop both motors
-  HAL_GPIO_WritePin(RIGHT_FWD_GPIO_Port, RIGHT_FWD_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(RIGHT_REV_GPIO_Port, RIGHT_REV_Pin, GPIO_PIN_RESET);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
-  
-  HAL_GPIO_WritePin(LEFT_FWD_GPIO_Port, LEFT_FWD_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(LEFT_REV_GPIO_Port, LEFT_REV_Pin, GPIO_PIN_RESET);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 0);
-  
+  setMotor(RIGHT_FWD_GPIO_Port, RIGHT_FWD_Pin, RIGHT_REV_GPIO_Port, RIGHT_REV_Pin, TIM_CHANNEL_1, 0, 1);
+  setMotor(LEFT_FWD_GPIO_Port, LEFT_FWD_Pin, LEFT_REV_GPIO_Port, LEFT_REV_Pin, TIM_CHANNEL_2, 0, 1);
   turnOffAllLEDs();
 }
 
-// Update direction LEDs based on motor state
+/* ============================================================================
+ * LED Control Functions
+ * ============================================================================ */
+
+/**
+ * @brief  Update direction LEDs based on current motor state
+ * @note   Shows FWD/REV for main direction, and LEFT/RIGHT for drift/turn
+ */
 void updateLEDs(void) {
-  // First turn off all LEDs
   turnOffAllLEDs();
   
-  // Check right motor direction
-  GPIO_PinState rightFwd = HAL_GPIO_ReadPin(RIGHT_FWD_GPIO_Port, RIGHT_FWD_Pin);
-  GPIO_PinState rightRev = HAL_GPIO_ReadPin(RIGHT_REV_GPIO_Port, RIGHT_REV_Pin);
+  uint8_t rightFwd = HAL_GPIO_ReadPin(RIGHT_FWD_GPIO_Port, RIGHT_FWD_Pin);
+  uint8_t leftFwd = HAL_GPIO_ReadPin(LEFT_FWD_GPIO_Port, LEFT_FWD_Pin);
   
-  // Check left motor direction
-  GPIO_PinState leftFwd = HAL_GPIO_ReadPin(LEFT_FWD_GPIO_Port, LEFT_FWD_Pin);
-  GPIO_PinState leftRev = HAL_GPIO_ReadPin(LEFT_REV_GPIO_Port, LEFT_REV_Pin);
-  
-  // Determine which LEDs to turn on based on movement pattern
-  if (rightFwd == GPIO_PIN_SET && leftFwd == GPIO_PIN_SET) {
-    // Both forward = FWD LED
-    HAL_GPIO_WritePin(LED_FWD_GPIO_Port, LED_FWD_Pin, GPIO_PIN_SET);
+  // Both motors same direction (forward or reverse)
+  if (rightFwd == leftFwd) {
+    HAL_GPIO_WritePin(rightFwd ? LED_FWD_GPIO_Port : LED_REV_GPIO_Port, 
+                      rightFwd ? LED_FWD_Pin : LED_REV_Pin, GPIO_PIN_SET);
+    
+    // Show drift direction if PWM values differ
+    if (currentPWM_Right > currentPWM_Left) {
+      HAL_GPIO_WritePin(LED_LEFT_GPIO_Port, LED_LEFT_Pin, GPIO_PIN_SET);
+    } else if (currentPWM_Left > currentPWM_Right) {
+      HAL_GPIO_WritePin(LED_RIGHT_GPIO_Port, LED_RIGHT_Pin, GPIO_PIN_SET);
+    }
   }
-  else if (rightRev == GPIO_PIN_SET && leftRev == GPIO_PIN_SET) {
-    // Both reverse = REV LED
-    HAL_GPIO_WritePin(LED_REV_GPIO_Port, LED_REV_Pin, GPIO_PIN_SET);
-  }
-  else if (rightRev == GPIO_PIN_SET && leftFwd == GPIO_PIN_SET) {
-    // Right reverse, Left forward = RIGHT LED (turning right)
-    HAL_GPIO_WritePin(LED_RIGHT_GPIO_Port, LED_RIGHT_Pin, GPIO_PIN_SET);
-  }
-  else if (rightFwd == GPIO_PIN_SET && leftRev == GPIO_PIN_SET) {
-    // Right forward, Left reverse = LEFT LED (turning left)
-    HAL_GPIO_WritePin(LED_LEFT_GPIO_Port, LED_LEFT_Pin, GPIO_PIN_SET);
+  // Rotation: motors in opposite directions
+  else {
+    HAL_GPIO_WritePin(rightFwd ? LED_LEFT_GPIO_Port : LED_RIGHT_GPIO_Port,
+                      rightFwd ? LED_LEFT_Pin : LED_RIGHT_Pin, GPIO_PIN_SET);
   }
 }
 
@@ -246,21 +214,37 @@ void turnOffAllLEDs(void) {
   HAL_GPIO_WritePin(LED_RIGHT_GPIO_Port, LED_RIGHT_Pin, GPIO_PIN_RESET);
 }
 
-// UART DMA Callback - Called when DMA receives data
+/* ============================================================================
+ * UART Interrupt Callback
+ * ============================================================================ */
+
+/**
+ * @brief  UART receive complete callback (called for each byte)
+ * @note   Simple state machine for robust packet synchronization
+ */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
   if (huart->Instance == USART2) {
-    // Search for start byte (0xFF) in the buffer
-    for (int i = 0; i < UART_BUFFER_SIZE - 4; i++) {
-      if (uartRxBuffer[i] == 0xFF) {
-        // Found start byte, copy the 5-byte command
-        memcpy(commandBuffer, &uartRxBuffer[i], 5);
+    // Waiting for start byte
+    if (rxIndex == 0) {
+      if (rxByte == 0xFF) {
+        uartRxBuffer[0] = 0xFF;
+        rxIndex = 1;
+      }
+      // else: ignore non-start bytes
+    }
+    // Receiving packet data
+    else {
+      uartRxBuffer[rxIndex++] = rxByte;
+      
+      // Complete packet received
+      if (rxIndex == PACKET_SIZE) {
+        memcpy(commandBuffer, uartRxBuffer, PACKET_SIZE);
         newCommandReceived = 1;
-        break;
+        rxIndex = 0;
       }
     }
     
-    // Restart DMA reception
-    HAL_UART_Receive_DMA(&huart2, uartRxBuffer, UART_BUFFER_SIZE);
+    HAL_UART_Receive_IT(&huart2, &rxByte, 1);
   }
 }
 
@@ -295,31 +279,36 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DMA_Init();
   MX_TIM1_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
   
-  // Start PWM on both channels
-  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1); // Right motor
-  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2); // Left motor
+  /* ===== Hardware Initialization ===== */
   
-  // Initialize motors to stop
+  // Start PWM for motor control
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);  // Right motor (PE9)
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);  // Left motor (PE11)
+  
+  // Initialize motors to stopped state
   stopMotors();
   
-  // Start UART DMA reception
-  HAL_UART_Receive_DMA(&huart2, uartRxBuffer, UART_BUFFER_SIZE);
+  // Start UART interrupt reception
+  HAL_UART_Receive_IT(&huart2, &rxByte, 1);
   
-  // LED startup sequence
+  /* ===== LED Startup Sequence ===== */
+  // Quick flash of all LEDs to indicate system ready
   HAL_GPIO_WritePin(LED_FWD_GPIO_Port, LED_FWD_Pin, GPIO_PIN_SET);
   HAL_Delay(100);
   HAL_GPIO_WritePin(LED_FWD_GPIO_Port, LED_FWD_Pin, GPIO_PIN_RESET);
+  
   HAL_GPIO_WritePin(LED_RIGHT_GPIO_Port, LED_RIGHT_Pin, GPIO_PIN_SET);
   HAL_Delay(100);
   HAL_GPIO_WritePin(LED_RIGHT_GPIO_Port, LED_RIGHT_Pin, GPIO_PIN_RESET);
+  
   HAL_GPIO_WritePin(LED_REV_GPIO_Port, LED_REV_Pin, GPIO_PIN_SET);
   HAL_Delay(100);
   HAL_GPIO_WritePin(LED_REV_GPIO_Port, LED_REV_Pin, GPIO_PIN_RESET);
+  
   HAL_GPIO_WritePin(LED_LEFT_GPIO_Port, LED_LEFT_Pin, GPIO_PIN_SET);
   HAL_Delay(100);
   HAL_GPIO_WritePin(LED_LEFT_GPIO_Port, LED_LEFT_Pin, GPIO_PIN_RESET);
@@ -334,13 +323,15 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
     
-    // Check if new command received via DMA
+    /* ===== Main Loop: Command Processing ===== */
+    
+    // Check for new command from UART interrupt
     if (newCommandReceived) {
       newCommandReceived = 0;
       processCommand(commandBuffer);
     }
     
-    // Small delay to prevent CPU hogging
+    // Small delay to reduce CPU usage
     HAL_Delay(1);
   }
   /* USER CODE END 3 */
@@ -494,22 +485,6 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
-  * Enable DMA controller clock
-  */
-static void MX_DMA_Init(void)
-{
-
-  /* DMA controller clock enable */
-  __HAL_RCC_DMA1_CLK_ENABLE();
-
-  /* DMA interrupt init */
-  /* DMA1_Stream5_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
-
-}
-
-/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -531,7 +506,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOE, RIGHT_FWD_Pin|RIGHT_REV_Pin|LEFT_FWD_Pin|LEFT_REV_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, LED_RIGHT_Pin|LED_FWD_Pin|LED_LEFT_Pin|LED_REV_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOD, LED_RIGHT_Pin|LED_REV_Pin|LED_LEFT_Pin|LED_FWD_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : RIGHT_FWD_Pin RIGHT_REV_Pin LEFT_FWD_Pin LEFT_REV_Pin */
   GPIO_InitStruct.Pin = RIGHT_FWD_Pin|RIGHT_REV_Pin|LEFT_FWD_Pin|LEFT_REV_Pin;
@@ -540,8 +515,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LED_RIGHT_Pin LED_FWD_Pin LED_LEFT_Pin LED_REV_Pin */
-  GPIO_InitStruct.Pin = LED_RIGHT_Pin|LED_FWD_Pin|LED_LEFT_Pin|LED_REV_Pin;
+  /*Configure GPIO pins : LED_RIGHT_Pin LED_REV_Pin LED_LEFT_Pin LED_FWD_Pin */
+  GPIO_InitStruct.Pin = LED_RIGHT_Pin|LED_REV_Pin|LED_LEFT_Pin|LED_FWD_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;

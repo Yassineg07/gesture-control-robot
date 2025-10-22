@@ -30,8 +30,8 @@ typedef struct struct_message {
 struct_message myData;
 int messageCounter = 0;
 
-// Callback when data is sent
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+// Callback when data is sent (updated for ESP32 Arduino Core v3.x)
+void OnDataSent(const wifi_tx_info_t *info, esp_now_send_status_t status) {
   Serial.print("Last Packet Send Status: ");
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Success" : "Fail");
 }
@@ -52,7 +52,7 @@ void setup() {
   // ===== CRITICAL: SET WIFI CHANNEL TO MATCH ESP32-CAM =====
   // Check ESP32-CAM Serial Monitor on boot to see its WiFi channel
   // CHANGE THIS NUMBER to match!
-  int32_t channel = 3;  // WARNING: CHANGE THIS to match ESP32-CAM's channel!
+  int32_t channel = 9;  // WARNING: CHANGE THIS to match ESP32-CAM's channel!
   
   Serial.println("===========================================");
   Serial.printf("WARNING: SETTING WiFi Channel to %d\n", channel);
@@ -110,108 +110,252 @@ void setup() {
   randomSeed(analogRead(0));
 }
 
-// Test patterns - creative movement scenarios
+// Test patterns - randomized movement scenarios
 void loop() {
   messageCounter++;
   
-  // Cycle through different test scenarios
-  int scenario = (messageCounter - 1) % 12; // 12 different test cases
+  // Cycle through different test scenarios (30 patterns with varied movements)
+  int scenario = (messageCounter - 1) % 30;
   
   switch(scenario) {
     case 0:
-      // Straight forward, full speed
+      // Forward full speed
       myData.mode = MODE_FORWARD;
       myData.pwm_right = 255;
       myData.pwm_left = 255;
-      Serial.println("Straight Forward - Full Speed");
+      Serial.println("1. Forward - Full Speed");
       break;
       
     case 1:
-      // Forward while turning right (right slower)
-      myData.mode = MODE_FORWARD;
-      myData.pwm_right = 150;
-      myData.pwm_left = 255;
-      Serial.println("Forward + Turning Right (drift)");
+      // Rotate left medium
+      myData.mode = MODE_LEFT;
+      myData.pwm_right = 180;
+      myData.pwm_left = 180;
+      Serial.println("2. Rotate Left - Medium");
       break;
       
     case 2:
-      // Forward while turning left (left slower)
-      myData.mode = MODE_FORWARD;
-      myData.pwm_right = 255;
-      myData.pwm_left = 150;
-      Serial.println("Forward + Turning Left (drift)");
+      // Reverse drift right
+      myData.mode = MODE_REVERSE;
+      myData.pwm_right = 150;
+      myData.pwm_left = 220;
+      Serial.println("3. Reverse - Drift Right");
       break;
       
     case 3:
-      // Gentle forward curve
+      // Forward sharp left turn
       myData.mode = MODE_FORWARD;
-      myData.pwm_right = 200;
-      myData.pwm_left = 180;
-      Serial.println("Gentle Forward Curve");
+      myData.pwm_right = 255;
+      myData.pwm_left = 80;
+      Serial.println("4. Forward - Sharp Left");
       break;
       
     case 4:
+      // STOP
+      myData.mode = MODE_STOP;
+      myData.pwm_right = 0;
+      myData.pwm_left = 0;
+      Serial.println("5. STOP");
+      break;
+      
+    case 5:
+      // Rotate right fast
+      myData.mode = MODE_RIGHT;
+      myData.pwm_right = 255;
+      myData.pwm_left = 255;
+      Serial.println("6. Rotate Right - Fast");
+      break;
+      
+    case 6:
+      // Forward medium speed
+      myData.mode = MODE_FORWARD;
+      myData.pwm_right = 180;
+      myData.pwm_left = 180;
+      Serial.println("7. Forward - Medium");
+      break;
+      
+    case 7:
       // Reverse full speed
       myData.mode = MODE_REVERSE;
       myData.pwm_right = 255;
       myData.pwm_left = 255;
-      Serial.println("Straight Reverse - Full Speed");
-      break;
-      
-    case 5:
-      // Reverse while turning
-      myData.mode = MODE_REVERSE;
-      myData.pwm_right = 200;
-      myData.pwm_left = 120;
-      Serial.println("Reverse + Turning");
-      break;
-      
-    case 6:
-      // Spin right (rotate in place)
-      myData.mode = MODE_RIGHT;
-      myData.pwm_right = 200;
-      myData.pwm_left = 200;
-      Serial.println("Spin Right (rotate)");
-      break;
-      
-    case 7:
-      // Slow spin right
-      myData.mode = MODE_RIGHT;
-      myData.pwm_right = 100;
-      myData.pwm_left = 100;
-      Serial.println("Slow Spin Right");
+      Serial.println("8. Reverse - Full Speed");
       break;
       
     case 8:
-      // Spin left (rotate in place)
-      myData.mode = MODE_LEFT;
-      myData.pwm_right = 200;
-      myData.pwm_left = 200;
-      Serial.println("Spin Left (rotate)");
+      // Forward gentle right curve
+      myData.mode = MODE_FORWARD;
+      myData.pwm_right = 180;
+      myData.pwm_left = 220;
+      Serial.println("9. Forward - Gentle Right");
       break;
       
     case 9:
-      // Fast spin left
+      // Rotate left slow
       myData.mode = MODE_LEFT;
-      myData.pwm_right = 255;
-      myData.pwm_left = 255;
-      Serial.println("Fast Spin Left");
+      myData.pwm_right = 100;
+      myData.pwm_left = 100;
+      Serial.println("10. Rotate Left - Slow");
       break;
       
     case 10:
-      // Slow forward
-      myData.mode = MODE_FORWARD;
-      myData.pwm_right = 80;
-      myData.pwm_left = 80;
-      Serial.println("Slow Forward (creep)");
-      break;
-      
-    case 11:
-      // Stop
+      // STOP
       myData.mode = MODE_STOP;
       myData.pwm_right = 0;
       myData.pwm_left = 0;
-      Serial.println("STOP");
+      Serial.println("11. STOP");
+      break;
+      
+    case 11:
+      // Reverse drift left
+      myData.mode = MODE_REVERSE;
+      myData.pwm_right = 220;
+      myData.pwm_left = 150;
+      Serial.println("12. Reverse - Drift Left");
+      break;
+      
+    case 12:
+      // Forward sharp right turn
+      myData.mode = MODE_FORWARD;
+      myData.pwm_right = 80;
+      myData.pwm_left = 255;
+      Serial.println("13. Forward - Sharp Right");
+      break;
+      
+    case 13:
+      // Rotate right slow
+      myData.mode = MODE_RIGHT;
+      myData.pwm_right = 100;
+      myData.pwm_left = 100;
+      Serial.println("14. Rotate Right - Slow");
+      break;
+      
+    case 14:
+      // Forward slow creep
+      myData.mode = MODE_FORWARD;
+      myData.pwm_right = 100;
+      myData.pwm_left = 100;
+      Serial.println("15. Forward - Slow Creep");
+      break;
+      
+    case 15:
+      // Reverse medium speed
+      myData.mode = MODE_REVERSE;
+      myData.pwm_right = 180;
+      myData.pwm_left = 180;
+      Serial.println("16. Reverse - Medium");
+      break;
+      
+    case 16:
+      // STOP
+      myData.mode = MODE_STOP;
+      myData.pwm_right = 0;
+      myData.pwm_left = 0;
+      Serial.println("17. STOP");
+      break;
+      
+    case 17:
+      // Forward drift left
+      myData.mode = MODE_FORWARD;
+      myData.pwm_right = 255;
+      myData.pwm_left = 150;
+      Serial.println("18. Forward - Drift Left");
+      break;
+      
+    case 18:
+      // Rotate left fast
+      myData.mode = MODE_LEFT;
+      myData.pwm_right = 255;
+      myData.pwm_left = 255;
+      Serial.println("19. Rotate Left - Fast");
+      break;
+      
+    case 19:
+      // Forward gentle left curve
+      myData.mode = MODE_FORWARD;
+      myData.pwm_right = 220;
+      myData.pwm_left = 180;
+      Serial.println("20. Forward - Gentle Left");
+      break;
+      
+    case 20:
+      // Reverse slow
+      myData.mode = MODE_REVERSE;
+      myData.pwm_right = 120;
+      myData.pwm_left = 120;
+      Serial.println("21. Reverse - Slow");
+      break;
+      
+    case 21:
+      // Rotate right medium
+      myData.mode = MODE_RIGHT;
+      myData.pwm_right = 180;
+      myData.pwm_left = 180;
+      Serial.println("22. Rotate Right - Medium");
+      break;
+      
+    case 22:
+      // STOP
+      myData.mode = MODE_STOP;
+      myData.pwm_right = 0;
+      myData.pwm_left = 0;
+      Serial.println("23. STOP");
+      break;
+      
+    case 23:
+      // Forward drift right
+      myData.mode = MODE_FORWARD;
+      myData.pwm_right = 150;
+      myData.pwm_left = 255;
+      Serial.println("24. Forward - Drift Right");
+      break;
+      
+    case 24:
+      // Reverse sharp turn
+      myData.mode = MODE_REVERSE;
+      myData.pwm_right = 100;
+      myData.pwm_left = 220;
+      Serial.println("25. Reverse - Sharp Turn");
+      break;
+      
+    case 25:
+      // Forward varied speed
+      myData.mode = MODE_FORWARD;
+      myData.pwm_right = 200;
+      myData.pwm_left = 160;
+      Serial.println("26. Forward - Varied Speed");
+      break;
+      
+    case 26:
+      // Rotate left varied
+      myData.mode = MODE_LEFT;
+      myData.pwm_right = 150;
+      myData.pwm_left = 150;
+      Serial.println("27. Rotate Left - Varied");
+      break;
+      
+    case 27:
+      // Reverse gentle curve
+      myData.mode = MODE_REVERSE;
+      myData.pwm_right = 200;
+      myData.pwm_left = 170;
+      Serial.println("28. Reverse - Gentle Curve");
+      break;
+      
+    case 28:
+      // STOP
+      myData.mode = MODE_STOP;
+      myData.pwm_right = 0;
+      myData.pwm_left = 0;
+      Serial.println("29. STOP");
+      break;
+      
+    case 29:
+      // Rotate right varied
+      myData.mode = MODE_RIGHT;
+      myData.pwm_right = 220;
+      myData.pwm_left = 220;
+      Serial.println("30. Rotate Right - Varied");
       break;
   }
   
@@ -221,11 +365,11 @@ void loop() {
   esp_err_t result = esp_now_send(espCamAddress, (uint8_t *) &myData, sizeof(myData));
   
   if (result == ESP_OK) {
-    Serial.printf("  Sent #%d: Mode=%d, R=%d, L=%d\n", 
+    Serial.printf("  ✓ Sent #%d: Mode=%d, R=%d, L=%d\n", 
                   messageCounter, myData.mode, myData.pwm_right, myData.pwm_left);
   } else {
-    Serial.println("  ERROR: Error sending");
+    Serial.println("  ✗ ERROR: Send failed");
   }
   
-  delay(2000); // 2 seconds between commands
+  delay(1000); // 1 second between commands
 }

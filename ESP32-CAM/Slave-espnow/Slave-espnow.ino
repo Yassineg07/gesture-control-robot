@@ -70,7 +70,7 @@ const char* password = "eh9zhYE3gY";
 WebSocketsClient webSocket;
 
 // Your PC's IP address where WebSocket server runs
-const char* websocket_server = "192.168.1.19"; // Your PC's IP address
+const char* websocket_server = "192.168.1.16"; // Your PC's IP address
 const int websocket_port = 8080;
 
 // Frame rate tracking
@@ -278,6 +278,7 @@ void sendToSTM32(uint8_t mode, uint8_t pwm_right, uint8_t pwm_left) {
   STM32_SERIAL.write(pwm_right);    // Right motor PWM
   STM32_SERIAL.write(pwm_left);     // Left motor PWM
   STM32_SERIAL.write(checksum);     // Checksum
+  STM32_SERIAL.flush();             // Ensure data is sent immediately
 }
 
 void sendCameraFrame() {
