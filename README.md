@@ -1,5 +1,5 @@
 # Gesture-Controlled Robot with Live Video Streaming
-(Demo Video)[https://youtube.com/shorts/Xi25Kjre0I0?feature=share]
+[![Demo Video](https://img.youtube.com/vi/Xi25Kjre0I0/maxresdefault.jpg)](https://youtu.be/Xi25Kjre0I0)
 ## Quick Start Guide
 
 **New to this project?** Follow these steps in order:
