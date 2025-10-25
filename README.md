@@ -161,5 +161,5 @@ websocket-server/      camera-server.js, package.json
 - Lansari Fedi <lansarifedi7@gmail.com>
 
 ---
-##License
+## License
 MIT. See 'LICENSE' for details
