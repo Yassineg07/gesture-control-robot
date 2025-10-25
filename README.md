@@ -4,8 +4,6 @@
 
 Build a wireless robot that streams live video while receiving motion commands over ESP-NOW. A Master ESP32 sends mode + PWM values to an ESP32-CAM, which relays them via UART to an STM32F4 that drives motors through an L298N. It’s a compact, real-world example of multi‑MCU integration with camera streaming, WebSockets, DMA UART, and hardware PWM.
 
-Estimated build time: 3–4 hours (first time), 1–2 hours (experienced)
-
 ---
 
 ## What’s inside (at a glance)
@@ -156,4 +154,12 @@ STM32F4/               CubeMX project (TIM1 PWM, USART2 RX DMA)
 websocket-server/      camera-server.js, package.json
 ```
 
-License: Educational/hobby use. Contributions welcome via PRs.
+---
+
+## Credits
+- Gharbi Yassine <gharbiyasine040@gmail.com>
+- Lansari Fedi <lansarifedi7@gmail.com>
+
+---
+##License
+MIT. See 'LICENSE' for details
