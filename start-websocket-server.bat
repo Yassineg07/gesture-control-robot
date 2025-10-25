@@ -50,6 +50,7 @@ echo   2. Start server + auto-open browser
 echo.
 set /p choice="Enter choice (1 or 2): "
 
+:start_server
 echo.
 echo [INFO] Starting server...
 echo [INFO] Press Ctrl+C to stop (then close window or wait)
@@ -63,9 +64,19 @@ if "%choice%"=="2" (
 REM Run the server
 node camera-server.js
 
-REM Kill all node processes when done
+REM After server stops, offer restart option
 echo.
-echo [INFO] Cleaning up...
+echo [INFO] Server stopped.
+choice /C YN /M "Do you want to restart the server? (Y/N)"
+if errorlevel 2 goto end
+if errorlevel 1 goto restart_server
+
+:restart_server
+echo [INFO] Restarting server...
 taskkill /F /IM node.exe >nul 2>&1
 timeout /t 1 /nobreak >nul
+goto start_server
+
+:end
+echo [INFO] Exiting.
 exit

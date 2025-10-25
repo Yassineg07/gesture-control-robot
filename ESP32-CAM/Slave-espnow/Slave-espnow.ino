@@ -70,7 +70,7 @@ const char* password = "eh9zhYE3gY";
 WebSocketsClient webSocket;
 
 // Your PC's IP address where WebSocket server runs
-const char* websocket_server = "192.168.1.16"; // Your PC's IP address
+const char* websocket_server = "192.168.1.11"; // Your PC's IP address
 const int websocket_port = 8080;
 
 // Frame rate tracking

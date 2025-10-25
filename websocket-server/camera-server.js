@@ -27,49 +27,60 @@ const server = http.createServer((req, res) => {
                     min-height: 100vh;
                     padding: 10px;
                 }
-                .container {
                     max-width: 1400px;
                     width: 100%;
                     margin: 0 auto;
                 }
                 header {
                     text-align: center;
-                    margin-bottom: 10px;
+                    margin-bottom: 18px;
                 }
                 h1 {
-                    font-size: 26px;
-                    font-weight: 600;
+                    font-size: 30px;
+                    font-weight: 700;
                     background: linear-gradient(135deg, #2563eb 0%, #8b0000 100%);
                     -webkit-background-clip: text;
                     -webkit-text-fill-color: transparent;
                     background-clip: text;
+                    text-align: center;
+                    margin: 0 auto;
+                    display: block;
                 }
                 .layout {
                     display: grid;
-                    grid-template-columns: 1fr 320px;
-                    gap: 20px;
+                    grid-template-columns: 1fr 400px;
+                    gap: 32px;
                     width: 100%;
+                    height: 92vh;
+                    min-height: 700px;
                 }
                 @media (max-width: 1024px) {
                     .layout {
                         grid-template-columns: 1fr;
+                        height: auto;
+                        min-height: 0;
                     }
                 }
-                .stream-section {
-                    background: rgba(30, 30, 30, 0.8);
-                    backdrop-filter: blur(10px);
-                    border-radius: 12px;
-                    padding: 15px;
-                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-                    border: 1px solid rgba(100, 100, 100, 0.2);
+                .stream-section, .control-panel {
+                    height: 100%;
+                    min-height: 0;
+                    display: flex;
+                    flex-direction: column;
+                    flex: 1 1 0%;
                 }
                 .stream-container {
                     position: relative;
                     background: #000;
                     border-radius: 12px;
                     overflow: hidden;
-                    aspect-ratio: 4/3;
-                    max-height: 750px;
+                    width: 100%;
+                    height: 100%;
+                    min-height: 0;
+                    max-height: 100%;
+                    display: flex;
+                    align-items: stretch;
+                    justify-content: stretch;
+                    flex: 1 1 0%;
                 }
                 #stream {
                     width: 100%;
@@ -85,17 +96,8 @@ const server = http.createServer((req, res) => {
                     justify-content: center;
                     background: rgba(0, 0, 0, 0.5);
                     backdrop-filter: blur(5px);
-                }
-                .spinner {
-                    width: 50px;
-                    height: 50px;
-                    border: 4px solid rgba(100, 100, 100, 0.2);
-                    border-top-color: #2563eb;
-                    border-radius: 50%;
-                    animation: spin 1s linear infinite;
-                }
-                @keyframes spin {
-                    to { transform: rotate(360deg); }
+                    width: 100%;
+                    height: 100%;
                 }
                 #status {
                     text-align: center;
@@ -105,6 +107,7 @@ const server = http.createServer((req, res) => {
                     border-radius: 6px;
                     font-size: 18px;
                     font-weight: 500;
+                    width: 100%;
                 }
                 .connected { color: #2563eb; }
                 .disconnected { color: #8b0000; }
@@ -112,12 +115,13 @@ const server = http.createServer((req, res) => {
                 .control-panel {
                     background: rgba(30, 30, 30, 0.8);
                     backdrop-filter: blur(10px);
-                    border-radius: 12px;
-                    padding: 15px;
-                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+                    border-radius: 8px;
+                    padding: 6px;
+                    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
                     overflow-y: auto;
-                    max-height: calc(100vh - 100px);
-                    border: 1px solid rgba(100, 100, 100, 0.2);
+                    max-height: calc(100vh - 40px);
+                    border: 1px solid rgba(100, 100, 100, 0.13);
+                    font-size: 16px;
                 }
                 .control-panel::-webkit-scrollbar {
                     width: 8px;
@@ -135,16 +139,16 @@ const server = http.createServer((req, res) => {
                 }
                 .panel-section {
                     background: rgba(40, 40, 40, 0.5);
-                    border-radius: 8px;
-                    padding: 8px;
-                    margin-bottom: 8px;
-                    border: 1px solid rgba(100, 100, 100, 0.15);
+                    border-radius: 7px;
+                    padding: 7px;
+                    margin-bottom: 7px;
+                    border: 1.5px solid rgba(100, 100, 100, 0.10);
                 }
                 .panel-section h3 {
-                    margin-bottom: 8px;
+                    margin-bottom: 6px;
                     color: #d0d0d0;
-                    font-size: 16px;
-                    font-weight: 600;
+                    font-size: 17px;
+                    font-weight: 700;
                     display: flex;
                     align-items: center;
                     gap: 6px;
@@ -157,7 +161,7 @@ const server = http.createServer((req, res) => {
                     border-radius: 1px;
                 }
                 .control-item {
-                    margin-bottom: 8px;
+                    margin-bottom: 6px;
                 }
                 .control-item:last-child {
                     margin-bottom: 0;
@@ -167,21 +171,18 @@ const server = http.createServer((req, res) => {
                     justify-content: space-between;
                     align-items: center;
                     margin-bottom: 4px;
-                    font-size: 15px;
+                    font-size: 17px;
                     color: #b0b0b0;
-                    font-weight: 500;
+                    font-weight: 600;
                 }
                 .control-item input[type="range"] {
                     width: 100%;
-                    height: 5px;
-                    border-radius: 3px;
+                    height: 7px;
+                    border-radius: 4px;
                     background: rgba(100, 100, 100, 0.3);
                     outline: none;
                     -webkit-appearance: none;
                     transition: background 0.2s;
-                }
-                .control-item input[type="range"]:hover {
-                    background: rgba(100, 100, 100, 0.4);
                 }
                 .control-item input[type="range"]::-webkit-slider-thumb {
                     -webkit-appearance: none;
@@ -190,11 +191,11 @@ const server = http.createServer((req, res) => {
                     border-radius: 50%;
                     background: linear-gradient(135deg, #2563eb 0%, #8b0000 100%);
                     cursor: pointer;
-                    box-shadow: 0 2px 8px rgba(139, 0, 0, 0.4);
+                    box-shadow: 0 2px 4px rgba(139, 0, 0, 0.2);
                     transition: transform 0.2s;
                 }
                 .control-item input[type="range"]::-webkit-slider-thumb:hover {
-                    transform: scale(1.1);
+                    transform: scale(1.05);
                 }
                 .control-item input[type="range"]::-moz-range-thumb {
                     width: 15px;
@@ -203,20 +204,20 @@ const server = http.createServer((req, res) => {
                     background: linear-gradient(135deg, #2563eb 0%, #8b0000 100%);
                     cursor: pointer;
                     border: none;
-                    box-shadow: 0 2px 8px rgba(139, 0, 0, 0.4);
+                    box-shadow: 0 2px 4px rgba(139, 0, 0, 0.2);
                 }
                 .control-item input[type="checkbox"] {
-                    width: 14px;
-                    height: 14px;
+                    width: 15px;
+                    height: 15px;
                     cursor: pointer;
                     accent-color: #2563eb;
                 }
                 .control-item input[type="number"] {
-                    width: 60px;
+                    width: 50px;
                     padding: 4px 6px;
                     background: rgba(50, 50, 50, 0.5);
-                    border: 1px solid rgba(100, 100, 100, 0.3);
-                    border-radius: 4px;
+                    border: 1.5px solid rgba(100, 100, 100, 0.3);
+                    border-radius: 5px;
                     color: #d0d0d0;
                     font-size: 15px;
                     text-align: center;
@@ -229,13 +230,13 @@ const server = http.createServer((req, res) => {
                 }
                 .value-display {
                     color: #2563eb;
-                    font-weight: 600;
+                    font-weight: 700;
                     font-size: 15px;
-                    min-width: 30px;
+                    min-width: 20px;
                     text-align: right;
                 }
                 .hint {
-                    font-size: 11px;
+                    font-size: 10px;
                     color: #707070;
                     margin-top: 2px;
                 }
@@ -337,6 +338,21 @@ const server = http.createServer((req, res) => {
                         </div>
                         
                         <div class="panel-section">
+                            <h3>LED Flash</h3>
+                            <div class="control-item">
+                                <label class="toggle-label">
+                                    <input type="checkbox" id="led">
+                                    <span>Enable Flash</span>
+                                </label>
+                            </div>
+                            <div class="control-item">
+                                <label><span>Intensity</span> <span class="value-display" id="led_intensity-val">0</span></label>
+                                <input type="range" id="led_intensity" min="0" max="255" value="0" step="1">
+                                <div class="hint">0 = off, 255 = maximum brightness</div>
+                            </div>
+                        </div>
+
+                        <div class="panel-section">
                             <h3>Image Quality</h3>
                             <div class="control-item">
                                 <label><span>Brightness</span> <span class="value-display" id="brightness-val">0</span></label>
@@ -356,7 +372,7 @@ const server = http.createServer((req, res) => {
                                 <div class="hint">Lower = better quality, higher = smaller file</div>
                             </div>
                         </div>
-                        
+
                         <div class="panel-section">
                             <h3>Exposure</h3>
                             <div class="control-item">
@@ -380,21 +396,6 @@ const server = http.createServer((req, res) => {
                                 </label>
                                 <input type="range" id="aec_value" min="0" max="1200" value="300" step="10">
                                 <div class="hint">0 = darkest, 1200 = brightest</div>
-                            </div>
-                        </div>
-                        
-                        <div class="panel-section">
-                            <h3>LED Flash</h3>
-                            <div class="control-item">
-                                <label class="toggle-label">
-                                    <input type="checkbox" id="led">
-                                    <span>Enable Flash</span>
-                                </label>
-                            </div>
-                            <div class="control-item">
-                                <label><span>Intensity</span> <span class="value-display" id="led_intensity-val">0</span></label>
-                                <input type="range" id="led_intensity" min="0" max="255" value="0" step="1">
-                                <div class="hint">0 = off, 255 = maximum brightness</div>
                             </div>
                         </div>
                     </div>

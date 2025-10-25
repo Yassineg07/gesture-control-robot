@@ -39,7 +39,7 @@ enum MotorMode {
   MODE_STOP = 4
 };
 
-static constexpr float alpha = 0.92f; // complementary filter coefficient (balanced)
+static constexpr float alpha = 0.85f; // complementary filter coefficient (balanced)
 static constexpr float accel_weight = 1.0f - alpha;
 
 float angle_roll_x = 0.0f;   // roll (deg)
@@ -79,14 +79,14 @@ bool mpuReadAll(int16_t &ax, int16_t &ay, int16_t &az, int16_t &gx, int16_t &gy,
   uint8_t buf[14];
   if (!mpuReadBytes(MPU_ACCEL_XOUT_H, 14, buf)) return false;
   
-  // MPU6050 is mounted upside down (180° rotation) - INVERT EVERYTHING!
-  ax = -(int16_t)((buf[0] << 8) | buf[1]);
-  ay = -(int16_t)((buf[2] << 8) | buf[3]);
-  az = -(int16_t)((buf[4] << 8) | buf[5]);
+  // MPU6050 mounted normally - no inversion needed
+  ax = (int16_t)((buf[0] << 8) | buf[1]);
+  ay = (int16_t)((buf[2] << 8) | buf[3]);
+  az = (int16_t)((buf[4] << 8) | buf[5]);
   // buf[6-7] is temperature, skip
-  gx = -(int16_t)((buf[8] << 8) | buf[9]);
-  gy = -(int16_t)((buf[10] << 8) | buf[11]);
-  gz = -(int16_t)((buf[12] << 8) | buf[13]);
+  gx = (int16_t)((buf[8] << 8) | buf[9]);
+  gy = (int16_t)((buf[10] << 8) | buf[11]);
+  gz = (int16_t)((buf[12] << 8) | buf[13]);
   
   return true;
 }
@@ -118,10 +118,7 @@ int messageCounter = 0;
 
 // Callback when data is sent (updated for ESP32 Arduino Core v3.x)
 void OnDataSent(const wifi_tx_info_t *info, esp_now_send_status_t status) {
-  // Reduced logging to avoid Serial bottleneck
-  if (status != ESP_NOW_SEND_SUCCESS) {
-    Serial.println("Send FAIL");
-  }
+  // No logging on send failure
 }
 
 void setup() {
@@ -140,7 +137,7 @@ void setup() {
   // ===== CRITICAL: SET WIFI CHANNEL TO MATCH ESP32-CAM =====
   // Check ESP32-CAM Serial Monitor on boot to see its WiFi channel
   // CHANGE THIS NUMBER to match!
-  int32_t channel = 9;  // WARNING: CHANGE THIS to match ESP32-CAM's channel!
+  int32_t channel = 8;  // WARNING: CHANGE THIS to match ESP32-CAM's channel!
   
   Serial.println("===========================================");
   Serial.printf("WARNING: SETTING WiFi Channel to %d\n", channel);
@@ -219,14 +216,12 @@ void setup() {
     imuAvailable = false;
   } else {
     Serial.println("MPU6050 communication OK!");
-    
-    // Configure MPU6050
+    // --- IMU SETTINGS: Set to match reference ---
+    // Gyro: ±250 deg/s (0x00), Accel: ±2g (0x00), DLPF: 44Hz (0x03), I2C: 400kHz
     mpuWriteByte(MPU_GYRO_CONFIG, 0x00);    // ±250 deg/s
     mpuWriteByte(MPU_ACCEL_CONFIG, 0x00);   // ±2g
     mpuWriteByte(MPU_CONFIG, 0x03);         // DLPF ~44Hz
-    
     delay(50);
-    
     // Test read
     int16_t ax, ay, az, gx, gy, gz;
     if (mpuReadAll(ax, ay, az, gx, gy, gz)) {
@@ -236,7 +231,6 @@ void setup() {
       Serial.println("  Gyroscope: ±250°/s");
       Serial.println("  Filter: 44 Hz");
       Serial.printf("Initial reading: ax=%d ay=%d az=%d\n", ax, ay, az);
-      
       // Prime angles from accelerometer
       computeAccelAnglesDeg(ax, ay, az, angle_roll_x, angle_pitch_y);
       imuAvailable = true;
@@ -252,32 +246,14 @@ void setup() {
 
 // Test pattern function when IMU not available
 void runTestPatterns() {
-  static int patternIndex = 0;
-  static unsigned long lastSendTime = 0;
-  
-  if (millis() - lastSendTime < 1000) {
-    return; // Send every 1 second
-  }
-  lastSendTime = millis();
-  
-  // Simple forward movement pattern for testing
-  myData.mode = MODE_FORWARD;
-  myData.pwm_right = 150;
-  myData.pwm_left = 150;
-  myData.counter = messageCounter++;
-  
-  esp_err_t result = esp_now_send(espCamAddress, (uint8_t *)&myData, sizeof(myData));
-  if (result == ESP_OK) {
-    Serial.printf("Test pattern #%d sent: Mode=%d R=%d L=%d\n",
-                  messageCounter, myData.mode, myData.pwm_right, myData.pwm_left);
-  }
+  // Test pattern function removed
+  // (No-op)
 }
 
 // Use IMU angles to control robot proportionally
 void loop() {
-  // Only use IMU if available, otherwise use test patterns
+  // Only use IMU if available
   if (!imuAvailable) {
-    runTestPatterns();
     return;
   }
   
@@ -294,34 +270,43 @@ void loop() {
     return;
   }
 
-  // Accel angles
-  float accel_roll_deg, accel_pitch_deg;
-  computeAccelAnglesDeg(ax, ay, az, accel_roll_deg, accel_pitch_deg);
 
-  // Gyro rates (deg/s)
-  float gyro_rate_x_dps = gx / GYRO_SCALE;
-  float gyro_rate_y_dps = gy / GYRO_SCALE;
+  // Convert only the axes needed for calculations
+  float ax_g = -ax / ACCEL_SCALE;
+  float az_g = -az / ACCEL_SCALE;
+  float gx_dps = gx / GYRO_SCALE;
+  float gy_dps = -gy / GYRO_SCALE;
 
-  // Complementary filter
-  angle_roll_x = alpha * (angle_roll_x + gyro_rate_x_dps * dt) + accel_weight * accel_roll_deg;
-  angle_pitch_y = alpha * (angle_pitch_y + gyro_rate_y_dps * dt) + accel_weight * accel_pitch_deg;
+  // Calculate accel angles (deg) using the same formulas as imu-esp32.ino
+  // ay is only used in accelPitch calculation
+  float accelPitch = atan2f(-ay / ACCEL_SCALE, sqrtf(ax_g * ax_g + az_g * az_g)) * 180.0f / PI;
+  float accelRoll = -atan2f(-ax_g, az_g) * 180.0f / PI;
+
+  // Complementary filter (match variable names to imu-esp32.ino)
+  angle_roll_x = alpha * (angle_roll_x + gx_dps * dt) + accel_weight * accelRoll;
+  angle_pitch_y = alpha * (angle_pitch_y + gy_dps * dt) + accel_weight * accelPitch;
 
   // Map angles to motor commands
-  const float deadzone_pitch = 5.0f; // degrees
-  const float deadzone_roll = 5.0f;  // degrees
-  const float max_pitch = 30.0f;     // degrees for full throttle
-  const float max_roll = 30.0f;      // degrees for full steering
+  const float deadzone_pitch = 10.0f; // degrees
+  const float max_pitch = 30.0f;      // degrees
+  const float deadzone_roll = 10.0f;  // degrees
+  const float max_roll = 30.0f;       // degrees
 
-  // SWAP axes due to upside-down mounting
-  float pitch = angle_roll_x;   // forward/backward
-  float roll = angle_pitch_y;   // left/right tilt
+  // --- IMU axis and offset correction to match imu-esp32.ino ---
+  // angle_roll_x: filtered roll (deg), angle_pitch_y: filtered pitch (deg)
+  // Reference: filteredRoll = -atan2(-ax_g, az_g) * 180/PI; filteredPitch = atan2(ay_g, sqrt(ax_g^2 + az_g^2)) * 180/PI;
+  // Offsets: pitchOffset = 0.4, rollOffset = 5.4
+  // Swapped axis mapping: roll = forward/backward, pitch = left/right
+  const float pitchOffset = 4.8f; // Compensate for observed pitch drift
+  const float rollOffset = -1.3f; // Compensate for observed roll drift
+  float roll = angle_pitch_y + rollOffset; // Now roll is what pitch was
+  float pitch = angle_roll_x + pitchOffset; // Now pitch is what roll was
 
-  // Compute normalized magnitudes
+  // Calculate normalized magnitudes
   float pitch_mag = 0.0f;
   if (fabs(pitch) > deadzone_pitch) {
     pitch_mag = (fabs(pitch) - deadzone_pitch) / (max_pitch - deadzone_pitch);
     pitch_mag = constrain(pitch_mag, 0.0f, 1.0f);
-    // Exponential curve for smoother control (square for gentle start, fast ramp)
     pitch_mag = pitch_mag * pitch_mag;
   }
 
@@ -331,38 +316,45 @@ void loop() {
     roll_norm = constrain(roll_norm, 0.0f, 1.0f);
   }
 
-  // Base PWM from pitch magnitude
-  uint8_t pwm_base = static_cast<uint8_t>(pitch_mag * 255.0f);
+  // --- PWM Quantization: 3 levels (150, 200, 255) ---
+  // Map normalized PWM (0-255) to 200-255 range for more control
+  auto quantize_pwm = [](int pwm) -> uint8_t {
+    if (pwm <= 0) return 0;
+    if (pwm >= 255) return 255;
+    // Map 1-255 to 200-255 linearly
+    return static_cast<uint8_t>(200 + ((pwm / 255.0f) * 55));
+  };
 
-  // Decide mode and compute left/right PWM
-  if (pitch_mag > 0.0f) {
-    // Moving forward or reverse
-    // Positive pitch = tilting forward = go forward
+  // Priority: if roll is small, use pitch; if pitch is small, use roll
+  uint8_t pwm_base = static_cast<uint8_t>(pitch_mag * 255.0f);
+  // Allow drift as long as pitch is not very close to zero (e.g., |pitch| >= 10 deg)
+  if (fabs(pitch) >= 10.0f && pitch_mag > 0.0f) {
+    // Forward/backward with tilt drift: adjust left/right PWM by roll
     if (pitch > 0) {
       myData.mode = MODE_FORWARD;
     } else {
       myData.mode = MODE_REVERSE;
     }
-
-    // Differential steering
-    float turn = (roll >= 0.0f) ? roll_norm : -roll_norm;
-    int diff = static_cast<int>(turn * pwm_base);
-    int pr = static_cast<int>(pwm_base) - diff;
-    int pl = static_cast<int>(pwm_base) + diff;
-    myData.pwm_right = (uint8_t)constrain(pr, 0, 255);
-    myData.pwm_left = (uint8_t)constrain(pl, 0, 255);
-
-  } else if (roll_norm > 0.0f) {
-    // Rotation in place
+  // Drift: scale by both roll and base PWM, clamp so reduced side is always lower
+  float drift_scale = 1.0f; // increased for quicker drift
+  int drift_pwm = static_cast<int>(drift_scale * (roll / 30.0f) * pwm_base); // 30 deg = max drift
+  int pwm_right = pwm_base - drift_pwm;
+  int pwm_left  = pwm_base + drift_pwm;
+  // Clamp so neither exceeds 255 and neither goes below 0
+  pwm_right = constrain(pwm_right, 0, pwm_base);
+  pwm_left  = constrain(pwm_left, 0, 255);
+  myData.pwm_right = quantize_pwm(pwm_right);
+  myData.pwm_left  = quantize_pwm(pwm_left);
+  } else if (fabs(pitch) < 10.0f && roll_norm > 0.0f) {
+    // Only switch to right/left if pitch is nearly zero
     if (roll > 0) {
       myData.mode = MODE_RIGHT;
     } else {
       myData.mode = MODE_LEFT;
     }
-    uint8_t pwm_turn = static_cast<uint8_t>(roll_norm * 255.0f);
+    uint8_t pwm_turn = quantize_pwm(static_cast<uint8_t>(roll_norm * 255.0f));
     myData.pwm_right = pwm_turn;
     myData.pwm_left = pwm_turn;
-
   } else {
     // Stop
     myData.mode = MODE_STOP;
@@ -370,8 +362,8 @@ void loop() {
     myData.pwm_left = 0;
   }
 
-  // Send strategy: Send every 50ms (20Hz) OR when command changes significantly
-  const unsigned long SEND_INTERVAL_MS = 50;
+  // Send strategy: Send every ~30ms (33Hz) OR when command changes significantly
+  const unsigned long SEND_INTERVAL_MS = 30; // 33Hz transmission rate
   bool commandChanged = (myData.mode != prev_mode) || 
                         (abs((int)myData.pwm_right - (int)prev_pwm_right) > 10) ||
                         (abs((int)myData.pwm_left - (int)prev_pwm_left) > 10);
