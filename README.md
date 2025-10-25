@@ -162,4 +162,7 @@ websocket-server/      camera-server.js, package.json
 
 ---
 ## License
-MIT. See 'LICENSE' for details
+MIT. See `LICENSE` for details
+
+---
+Feel free to contact us.
