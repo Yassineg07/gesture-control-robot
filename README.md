@@ -1,192 +1,168 @@
 # Gesture-Controlled Robot with Live Video Streaming
 
-Multi-microcontroller wireless robot system combining ESP-NOW communication, live video streaming, and IMU-based gesture control.
+[![Demo Video](https://img.youtube.com/vi/Xi25Kjre0I0/maxresdefault.jpg)](https://youtu.be/Xi25Kjre0I0)
 
-## System Architecture
+Build a wireless robot that streams live video while receiving motion commands over ESP-NOW. A Master ESP32 sends mode + PWM values to an ESP32-CAM, which relays them via UART to an STM32F4 that drives motors through an L298N. It’s a compact, real-world example of multi‑MCU integration with camera streaming, WebSockets, DMA UART, and hardware PWM.
 
-```
-Master ESP32 (MPU6050)  -->  ESP32-CAM  -->  STM32F4  -->  L298N  -->  DC Motors
-    (Gesture Input)         (Video/Relay)   (Motor Ctrl)  (Driver)
-                                 |
-                                 v
-                           Web Dashboard
-```
+---
 
-## Hardware Requirements
+## What’s inside (at a glance)
 
-- **Master ESP32** - With MPU6050 IMU
-- **ESP32-CAM** - AI-Thinker with OV2640
-- **STM32F4** - STM32F407/F411
-- **L298N** - Motor driver
-- **2x DC Motors** - 6-12V
-- **4x LEDs** - Direction indicators
-- **Battery Pack** - 7-12V for motors
+Architecture: Master ESP32 → ESP32‑CAM (video + relay) → STM32F4 (motor control) → L298N → Motors
 
-## Quick Start
+Protocols and I/O:
 
-### 1. Configure WiFi (ESP32-CAM)
-Edit `Slave-espnow.ino`:
-```cpp
-const char* ssid = "YOUR_WIFI_SSID";
-const char* password = "YOUR_PASSWORD";
-const char* websocket_server = "192.168.1.XXX";  // Your PC IP
-```
+- ESP‑NOW (ESP32 → ESP32‑CAM), <10 ms latency
+- WebSocket (ESP32‑CAM → browser), JPEG stream on port 8080
+- UART (ESP32‑CAM → STM32F4) at 115200 baud with checksum
+- TIM1 PWM at ~26 kHz, independent L/R motor speed
 
-### 2. Set MAC Address (Master ESP32)
-1. Upload code to ESP32-CAM
-2. Copy MAC address from Serial Monitor
-3. Update `Master-espnow.ino` (example):
-```cpp
-uint8_t espCamAddress[] = {0x08, 0xF9, 0xE0, 0xEC, 0xCE, 0x1C};
-```
+Key features:
 
-### 3. Match WiFi Channel
-Both ESP32 devices must use same channel. Update in `Master-espnow.ino`:
-```cpp
-int32_t channel = 8;  // Match ESP32-CAM's channel
-```
+- Live VGA video (~18–22 FPS)
+- 12 test motion patterns (forward/reverse/turns/spins)
+- Direction LEDs (FWD/REV/LEFT/RIGHT)
+- Server‑side image tweaks (Sharp)
 
+---
 
-### 4. Start Server
+## Hardware
+
+- ESP32 dev board (Master)
+- ESP32‑CAM (AI‑Thinker with OV2640)
+- STM32F4 (e.g., F407/F411)
+- L298N motor driver + 2 DC motors
+- Battery 7–12 V for motors (logic power separately)
+- 4 LEDs + 220–1kΩ resistors, jumper wires, USB cables
+
+Essentials:
+
+- Common ground between all devices
+- Remove ENA/ENB jumpers on L298N (PWM control from STM32)
+
+---
+
+## Wiring (essentials only)
+
+- ESP32‑CAM TX (GPIO1/U0T) → STM32 PA3 (USART2_RX)
+- STM32 TIM1 PWM: PE9 → L298N ENA, PE11 → L298N ENB
+- STM32 direction: PE8→IN1, PE10→IN2, PE12→IN3, PE13→IN4
+- LEDs: PD12 RIGHT, PD13 FWD, PD14 LEFT, PD15 REV
+- Power: L298N +12V to battery, GND shared with STM32/ESP32‑CAM
+
+Programming tip: Disconnect ESP32‑CAM UART during flashing (GPIO1/3 used by USB).
+
+---
+
+## Software setup
+
+Arduino IDE:
+
+- Boards: ESP32 (Espressif URL), STM32 (STM32Duino URL)
+- Libraries: ArduinoJson, WebSocketsClient, AsyncTCP, ESPAsyncWebServer
+
+Node.js server:
+
 ```bash
 cd websocket-server
 npm install
 npm start
 ```
-Open browser: `http://localhost:8080`
 
-## Wiring Guide
+Open http://localhost:8080
 
-### ESP32-CAM to STM32F4
-| ESP32-CAM | STM32F4 |
-|-----------|---------|
-| GPIO1 (TX) | PA3 (RX) |
-| GND | GND |
+Configure ESP32‑CAM WiFi in `ESP32-CAM/Slave-espnow/Slave-espnow.ino`:
 
-### STM32F4 to L298N
-| STM32F4 | L298N | Function |
-|---------|-------|----------|
-| PE8 | IN1 | Right forward |
-| PE10 | IN2 | Right reverse |
-| PE9 | ENA | Right PWM |
-| PE12 | IN3 | Left forward |
-| PE13 | IN4 | Left reverse |
-| PE11 | ENB | Left PWM |
-
-### STM32F4 LEDs
-| Pin | LED | Direction |
-|-----|-----|-----------|
-| PD12 | RIGHT | Rotating right |
-| PD13 | FWD | Moving forward |
-| PD14 | LEFT | Rotating left |
-| PD15 | REV | Moving reverse |
-
-### Master ESP32 MPU6050
-| MPU6050 | ESP32 |
-|---------|-------|
-| VCC | 3.3V |
-| GND | GND |
-| SDA | GPIO21 |
-| SCL | GPIO22 |
-
-## Motor Control Modes
-
-| Mode | Value | Behavior |
-|------|-------|----------|
-| FORWARD | 0 | Both motors forward |
-| REVERSE | 1 | Both motors reverse |
-| RIGHT | 2 | Rotate right in place |
-| LEFT | 3 | Rotate left in place |
-| STOP | 4 | All motors off |
-
-## UART Protocol
-
-**Packet Format (5 bytes):**
-```
-[0xFF][MODE][PWM_RIGHT][PWM_LEFT][CHECKSUM]
+```cpp
+const char* ssid = "YOUR_SSID";
+const char* password = "YOUR_PASSWORD";
+const char* websocket_server = "192.168.1.XXX"; // your PC’s IP
 ```
 
-**Checksum:** `MODE ^ PWM_RIGHT ^ PWM_LEFT`
+Set MAC and channel for Master ESP32:
 
-**Example:**
-```
-FORWARD, R=255, L=200
-[0xFF][0x00][0xFF][0xC8][0x37]
-```
+1. Get ESP32‑CAM MAC from Serial Monitor.
+2. Paste into `ESP32/Master-espnow/Master-espnow.ino`:
 
-## STM32 Configuration
-
-### TIM1 PWM
-- **Prescaler:** 15
-- **Period:** 255
-- **Frequency:** ~26 kHz
-- **Channels:** PE9 (CH1), PE11 (CH2)
-
-### USART2
-- **Baud:** 115200
-- **Mode:** Interrupt-based
-- **Pins:** PA2 (TX), PA3 (RX)
-
-## Gesture Control
-
-The MPU6050 IMU on the Master ESP32 detects tilt gestures:
-
-- **Tilt Forward** → Robot moves forward
-- **Tilt Backward** → Robot moves reverse
-- **Tilt Left** → Robot turns left
-- **Tilt Right** → Robot turns right
-- **Level/Neutral** → Robot stops
-
-Speed is proportional to tilt angle. Drift correction applies subtle turning while moving forward/backward.
-
-## Performance
-
-| Parameter | Value |
-|-----------|-------|
-| Video FPS | 18-22 |
-| Video Resolution | 640x480 (VGA) |
-| ESP-NOW Latency | <10ms |
-| UART Baud | 115200 |
-| PWM Frequency | 26 kHz |
-| Control Update Rate | 33Hz (30ms) |
-
-## Troubleshooting
-
-**ESP-NOW drops packets:**
-- Verify both ESP32s use same WiFi channel
-- Check MAC address is correct
-- Ensure explicit channel setting
-
-**No video stream:**
-- Verify PC and ESP32-CAM on same WiFi
-- Check server IP in code matches your PC
-- Confirm firewall allows port 8080
-
-**Motors not responding:**
-- Check L298N power (7-12V)
-- Verify ENA/ENB jumpers removed
-- Test UART with logic analyzer
-- Check checksum validation
-
-**Wrong motor direction:**
-- Swap motor wires (OUT1↔OUT2 or OUT3↔OUT4)
-- Or modify GPIO pin assignments in code
-
-## Project Structure
-
-```
-├── Master-espnow.ino         # ESP32 gesture controller
-├── Slave-espnow.ino          # ESP32-CAM receiver/streamer
-├── main.c                    # STM32F4 motor controller
-├── camera-server.js          # Node.js WebSocket server
-└── README.md
+```cpp
+uint8_t espCamAddress[] = {0x08,0xF9,0xE0,0xEC,0xCE,0x1C};
 ```
 
+3. Ensure the same WiFi channel (example):
+
+```cpp
+esp_wifi_set_channel(3, WIFI_SECOND_CHAN_NONE);
+```
+
+STM32 (via CubeMX/IDE): TIM1 CH1/CH2 PWM (PE9/PE11), USART2 RX DMA (PA3), GPIO outs for PE8/10/12/13 and PD12–15.
+
+---
+
+## Upload order
+
+1. Master ESP32 → `ESP32/Master-espnow/Master-espnow.ino` (note channel)
+2. ESP32‑CAM → `ESP32-CAM/Slave-espnow/Slave-espnow.ino` (set WiFi + server IP)
+3. STM32F4 → CubeIDE project (TIM1 PWM, USART2 RX DMA)
+
+Then wire the boards and power up.
+
+---
+
+## Quick tests
+
+1. ESP‑NOW: Serial monitors show sent/received packets, 0% drops.
+2. UART/LEDs: With motors disconnected, LEDs change by mode every ~2 s.
+3. Motors: Place robot on blocks; run 12 patterns (independent L/R PWM).
+4. Web UI: Start server and open http://localhost:8080 to see live video and stats.
+
+---
+
+## UART protocol (5 bytes)
+
+```
+[0xFF] [MODE] [PWM_R] [PWM_L] [CHECKSUM]
+checksum = MODE ^ PWM_R ^ PWM_L
+```
+
+MODE: 0=FWD, 1=REV, 2=RIGHT, 3=LEFT, 4=STOP
+
+---
+
+## Performance (typical)
+
+- Video: 640×480 @ ~18–22 FPS (jpeg_quality=8, delay(40))
+- ESP‑NOW latency: <10 ms; reliability: ~100% with channel match
+- UART: 115200 baud; DMA on STM32
+- PWM: ~26 kHz, 8‑bit (0–255)
+
+---
+
+## Troubleshooting (fast fixes)
+
+- No ESP‑NOW packets: Confirm MAC, same channel, and WiFi connected on ESP32‑CAM.
+- No video: Verify PC IP in ESP32‑CAM code; ensure Node server running and firewall allows :8080.
+- Motors idle/wrong dir: Remove ENA/ENB jumpers; check IN1–IN4 pins; swap motor leads if reversed.
+
+---
+
+## Project structure
+
+```
+ESP32/                 Master-espnow.ino
+ESP32-CAM/             Slave-espnow.ino
+STM32F4/               CubeMX project (TIM1 PWM, USART2 RX DMA)
+websocket-server/      camera-server.js, package.json
+```
+
+---
+
+## Credits
+- Gharbi Yassine <gharbiyasine040@gmail.com>
+- Lansari Fedi <lansarifedi7@gmail.com>
+
+---
 ## License
+MIT. See `LICENSE` for details
 
-MIT [LICENSE](LICENSE) - Open source project for educational and commercial use.
-
-## Authors
-
-- [Yassineg07](mailto:gharbiyasine040@gmail.com) 
-- [LansariFedi](mailto:lansarifedi7@gmail.com) 
+---
+Feel free to contact us.
