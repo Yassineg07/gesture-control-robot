@@ -5,7 +5,7 @@ const sharp = require('sharp');
 const IMAGE_PROCESSING = {
     enabled: true,
     median: 2,
-    brightness: 1.03,
+    brightness: 1.05,
     saturation: 1.05,
     jpegQuality: 75
 };

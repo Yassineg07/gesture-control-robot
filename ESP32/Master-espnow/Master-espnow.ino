@@ -13,10 +13,6 @@
 #define MPU_ACCEL_CONFIG 0x1C
 #define MPU_CONFIG 0x1A
 
-const float ACCEL_SCALE = 16384.0;
-const float GYRO_SCALE = 131.0;
-bool imuAvailable = false;
-
 enum MotorMode {
   MODE_FORWARD = 0,
   MODE_REVERSE = 1,
@@ -24,6 +20,11 @@ enum MotorMode {
   MODE_LEFT = 3,
   MODE_STOP = 4
 };
+
+const float ACCEL_SCALE = 16384.0;
+const float GYRO_SCALE = 131.0;
+bool imuAvailable = false;
+
 
 static constexpr float alpha = 0.85f;
 static constexpr float accel_weight = 1.0f - alpha;

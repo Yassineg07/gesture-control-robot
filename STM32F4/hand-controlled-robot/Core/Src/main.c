@@ -49,7 +49,6 @@ typedef enum {
 
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim1;
-
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */

@@ -26,8 +26,8 @@ int lastReceivedCounter = 0;
 int totalReceived = 0;
 int totalDropped = 0;
 
-#define STM32_SERIAL Serial
 #define UART_BAUD 115200
+#define STM32_SERIAL Serial
 
 #define PWDN_GPIO_NUM     32
 #define RESET_GPIO_NUM    -1
