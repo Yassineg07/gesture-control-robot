@@ -136,7 +136,7 @@ int32_t channel = 8;  // Match ESP32-CAM's channel
 ### 4. Start Server
 > **Windows users:** Double-click `start_dashboard.bat` for easy setup!
 
-or:
+*or*
 ```bash
 cd websocket-server
 npm install
