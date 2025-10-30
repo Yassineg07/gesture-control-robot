@@ -27,7 +27,6 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
-// Motor control modes (must match ESP32 code)
 typedef enum {
   MODE_FORWARD = 0,
   MODE_REVERSE = 1,
@@ -55,21 +54,15 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
-/* ============================================================================
- * UART Communication Variables
- * ============================================================================ */
 #define UART_BUFFER_SIZE 100
 #define PACKET_SIZE 5
 
-uint8_t uartRxBuffer[UART_BUFFER_SIZE];  // Reception buffer
-uint8_t rxByte;                           // Single byte for interrupt reception
-volatile uint16_t rxIndex = 0;            // Current buffer position
-uint8_t commandBuffer[PACKET_SIZE];       // Complete packet storage
-volatile uint8_t newCommandReceived = 0;  // Flag for new command
+uint8_t uartRxBuffer[UART_BUFFER_SIZE];
+uint8_t rxByte;   
+volatile uint16_t rxIndex = 0;  
+uint8_t commandBuffer[PACKET_SIZE];     
+volatile uint8_t newCommandReceived = 0; 
 
-/* ============================================================================
- * Motor State Variables
- * ============================================================================ */
 uint8_t currentMode = MODE_STOP;
 uint8_t currentPWM_Right = 0;
 uint8_t currentPWM_Left = 0;
@@ -95,27 +88,15 @@ void turnOffAllLEDs(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-/* ============================================================================
- * UART Command Processing
- * ============================================================================ */
-
-/**
- * @brief  Process received UART command packet
- * @param  data: Pointer to 5-byte packet [0xFF][MODE][PWM_R][PWM_L][CHECKSUM]
- */
 void processCommand(uint8_t *data) {
-  // Verify checksum (XOR of mode, pwm_right, pwm_left)
   if (data[4] != (data[1] ^ data[2] ^ data[3]) || data[1] > MODE_STOP) {
-    return;  // Invalid packet or mode
+    return; 
   }
   
-  // Update state
   currentMode = data[1];
   currentPWM_Right = data[2];
   currentPWM_Left = data[3];
   
-  // Execute command
   switch (currentMode) {
     case MODE_FORWARD:  moveForward(data[2], data[3]);  break;
     case MODE_REVERSE:  moveReverse(data[2], data[3]);  break;
@@ -125,18 +106,6 @@ void processCommand(uint8_t *data) {
   }
 }
 
-/* ============================================================================
- * Motor Control Functions
- * ============================================================================ */
-
-/**
- * @brief  Set individual motor direction and speed
- * @param  fwdPort, fwdPin: Forward direction GPIO
- * @param  revPort, revPin: Reverse direction GPIO  
- * @param  channel: PWM timer channel
- * @param  pwm: Speed (0-255)
- * @param  forward: 1=forward, 0=reverse
- */
 void setMotor(GPIO_TypeDef *fwdPort, uint16_t fwdPin, GPIO_TypeDef *revPort, uint16_t revPin, 
               uint32_t channel, uint8_t pwm, uint8_t forward) {
   HAL_GPIO_WritePin(fwdPort, fwdPin, forward ? GPIO_PIN_SET : GPIO_PIN_RESET);
@@ -174,33 +143,22 @@ void stopMotors(void) {
   turnOffAllLEDs();
 }
 
-/* ============================================================================
- * LED Control Functions
- * ============================================================================ */
-
-/**
- * @brief  Update direction LEDs based on current motor state
- * @note   Shows FWD/REV for main direction, and LEFT/RIGHT for drift/turn
- */
 void updateLEDs(void) {
   turnOffAllLEDs();
   
   uint8_t rightFwd = HAL_GPIO_ReadPin(RIGHT_FWD_GPIO_Port, RIGHT_FWD_Pin);
   uint8_t leftFwd = HAL_GPIO_ReadPin(LEFT_FWD_GPIO_Port, LEFT_FWD_Pin);
   
-  // Both motors same direction (forward or reverse)
   if (rightFwd == leftFwd) {
     HAL_GPIO_WritePin(rightFwd ? LED_FWD_GPIO_Port : LED_REV_GPIO_Port, 
                       rightFwd ? LED_FWD_Pin : LED_REV_Pin, GPIO_PIN_SET);
     
-    // Show drift direction if PWM values differ
     if (currentPWM_Right > currentPWM_Left) {
       HAL_GPIO_WritePin(LED_LEFT_GPIO_Port, LED_LEFT_Pin, GPIO_PIN_SET);
     } else if (currentPWM_Left > currentPWM_Right) {
       HAL_GPIO_WritePin(LED_RIGHT_GPIO_Port, LED_RIGHT_Pin, GPIO_PIN_SET);
     }
   }
-  // Rotation: motors in opposite directions
   else {
     HAL_GPIO_WritePin(rightFwd ? LED_LEFT_GPIO_Port : LED_RIGHT_GPIO_Port,
                       rightFwd ? LED_LEFT_Pin : LED_RIGHT_Pin, GPIO_PIN_SET);
@@ -214,29 +172,17 @@ void turnOffAllLEDs(void) {
   HAL_GPIO_WritePin(LED_RIGHT_GPIO_Port, LED_RIGHT_Pin, GPIO_PIN_RESET);
 }
 
-/* ============================================================================
- * UART Interrupt Callback
- * ============================================================================ */
-
-/**
- * @brief  UART receive complete callback (called for each byte)
- * @note   Simple state machine for robust packet synchronization
- */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
   if (huart->Instance == USART2) {
-    // Waiting for start byte
     if (rxIndex == 0) {
       if (rxByte == 0xFF) {
         uartRxBuffer[0] = 0xFF;
         rxIndex = 1;
       }
-      // else: ignore non-start bytes
     }
-    // Receiving packet data
     else {
       uartRxBuffer[rxIndex++] = rxByte;
       
-      // Complete packet received
       if (rxIndex == PACKET_SIZE) {
         memcpy(commandBuffer, uartRxBuffer, PACKET_SIZE);
         newCommandReceived = 1;
@@ -283,20 +229,13 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
   
-  /* ===== Hardware Initialization ===== */
-  
-  // Start PWM for motor control
-  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);  // Right motor (PE9)
-  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);  // Left motor (PE11)
-  
-  // Initialize motors to stopped state
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+
   stopMotors();
   
-  // Start UART interrupt reception
   HAL_UART_Receive_IT(&huart2, &rxByte, 1);
-  
-  /* ===== LED Startup Sequence ===== */
-  // Quick flash of all LEDs to indicate system ready
+
   HAL_GPIO_WritePin(LED_FWD_GPIO_Port, LED_FWD_Pin, GPIO_PIN_SET);
   HAL_Delay(100);
   HAL_GPIO_WritePin(LED_FWD_GPIO_Port, LED_FWD_Pin, GPIO_PIN_RESET);
@@ -322,16 +261,11 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    
-    /* ===== Main Loop: Command Processing ===== */
-    
-    // Check for new command from UART interrupt
     if (newCommandReceived) {
       newCommandReceived = 0;
       processCommand(commandBuffer);
     }
     
-    // Small delay to reduce CPU usage
     HAL_Delay(1);
   }
   /* USER CODE END 3 */
